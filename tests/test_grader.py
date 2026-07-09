@@ -34,6 +34,28 @@ class TestGrader(unittest.TestCase):
         self.assertEqual(set(rubric.keys()), {"Architecture", "State management", "Testing"})
         self.assertAlmostEqual(sum(item["weight"] for item in rubric.values()), 1.0)
 
+    def test_parse_rubric_ignores_code_samples_and_uses_weight_table(self):
+        text = """
+Responsive UI
+No overflow, works on many screen sizes
+8%
+SafeArea(
+  child: SingleChildScrollView(
+    child: Column(
+      children: [...],
+    ),
+  ),
+)
+Code reuse
+No duplicated widgets or constants
+6%
+"""
+        rubric = parse_rubric(text)
+
+        self.assertEqual(set(rubric.keys()), {"Responsive UI", "Code reuse"})
+        self.assertNotIn("SafeArea(", rubric)
+        self.assertNotIn("child: Column(", rubric)
+
     def test_provider_success_uses_ai_metadata(self):
         provider_result = ProviderResult(
             ok=True,
