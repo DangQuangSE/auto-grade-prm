@@ -1,7 +1,5 @@
 import os
-import re
 import shutil
-import tempfile
 import subprocess
 import uuid
 from typing import Optional
@@ -11,15 +9,21 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
 from analyzer import analyze_flutter_project
-from grader import grade_project_with_gemini
+from document_parser import DocumentParseError, decode_text_content, extract_docx_text
+from grader import grade_project
+from providers import get_provider_config
 
 app = FastAPI(title="Flutter Code Auto-Grader")
 
 # Define request models
 class GradeRequest(BaseModel):
     github_url: str
-    gemini_key: Optional[str] = None
+    criteria_text: Optional[str] = None
     custom_criteria: Optional[str] = None
+
+class CriteriaExtractRequest(BaseModel):
+    filename: str
+    content_base64: str
 
 # Ensure temp directory exists inside workspace
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -49,6 +53,25 @@ async def get_criteria():
         with open(criteria_file, 'r', encoding='utf-8') as f:
             return {"criteria": f.read()}
     return {"criteria": "Không tìm thấy tiêu chí cụ thể. Vui lòng tự cung cấp."}
+
+@app.get("/api/provider")
+async def get_provider():
+    return get_provider_config()
+
+@app.post("/api/criteria/extract")
+async def extract_criteria(request: CriteriaExtractRequest):
+    filename = request.filename.lower().strip()
+    try:
+        if filename.endswith(".docx"):
+            text = extract_docx_text(request.content_base64)
+        elif filename.endswith(".md") or filename.endswith(".txt"):
+            text = decode_text_content(request.content_base64)
+        else:
+            raise DocumentParseError("Only .docx, .md, and .txt criteria files are supported.")
+    except DocumentParseError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {"criteria": text}
 
 def clean_temp_dir(path):
     try:
@@ -91,12 +114,13 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
         if "error" in analysis_report:
             raise Exception(analysis_report["error"])
             
-        # 2. Run Gemini grading or fallback heuristic
-        result_report = grade_project_with_gemini(
-            target_path, 
-            request.gemini_key, 
-            analysis_report, 
-            request.custom_criteria
+        criteria_text = request.criteria_text or request.custom_criteria
+
+        # 2. Run AI provider grading or fallback heuristic
+        result_report = grade_project(
+            target_path,
+            analysis_report,
+            criteria_text
         )
         
         # Add metadata

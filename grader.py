@@ -1,360 +1,386 @@
+import json
 import os
 import re
-import json
-import google.generativeai as genai
+from typing import Any, Dict, Optional
 
-# Default rubric mapping rules
+from providers import OpenRouterProvider
+
+
 HEURISTIC_MAPPING = [
-    {"keywords": ["cấu trúc", "structure", "thư mục"], "key": "structure"},
-    {"keywords": ["đọc", "readability", "chất lượng code"], "key": "readability"},
-    {"keywords": ["tách widget", "widget con", "build()"], "key": "widgets"},
-    {"keywords": ["logic khỏi ui", "tách logic", "service", "controller"], "key": "logic"},
-    {"keywords": ["state", "trạng thái", "provider", "bloc", "riverpod"], "key": "state"},
-    {"keywords": ["navigation", "điều hướng", "route"], "key": "navigation"},
-    {"keywords": ["model", "dữ liệu", "json"], "key": "models"},
-    {"keywords": ["lỗi", "ngoại lệ", "try-catch", "validate"], "key": "errors"},
-    {"keywords": ["responsive", "overflow", "tràn"], "key": "responsive"},
-    {"keywords": ["tái sử dụng", "constants", "lặp"], "key": "reusability"},
-    {"keywords": ["tài nguyên", "resource", "assets", "pubspec"], "key": "resources"},
-    {"keywords": ["hiệu năng", "performance", "rebuild"], "key": "performance"},
-    {"keywords": ["mở rộng", "extens"], "key": "extensibility"},
-    {"keywords": ["convention", "quy ước", "pascal", "camel"], "key": "convention"},
-    {"keywords": ["test", "kiểm thử", "hoàn thiện"], "key": "testing"}
+    {"keywords": ["structure", "folder", "architecture", "cau truc"], "key": "structure"},
+    {"keywords": ["readability", "clean code", "doc", "chat luong"], "key": "readability"},
+    {"keywords": ["widget", "build"], "key": "widgets"},
+    {"keywords": ["logic", "service", "controller", "repository"], "key": "logic"},
+    {"keywords": ["state", "provider", "bloc", "riverpod", "getx"], "key": "state"},
+    {"keywords": ["navigation", "route"], "key": "navigation"},
+    {"keywords": ["model", "data", "json"], "key": "models"},
+    {"keywords": ["error", "exception", "try-catch", "validate"], "key": "errors"},
+    {"keywords": ["responsive", "overflow", "layout"], "key": "responsive"},
+    {"keywords": ["reuse", "constant", "duplicate"], "key": "reusability"},
+    {"keywords": ["resource", "asset", "pubspec"], "key": "resources"},
+    {"keywords": ["performance", "rebuild"], "key": "performance"},
+    {"keywords": ["extend", "extensible", "maintain"], "key": "extensibility"},
+    {"keywords": ["convention", "naming", "pascal", "camel", "snake"], "key": "convention"},
+    {"keywords": ["test", "testing"], "key": "testing"},
 ]
 
-def parse_rubric(criteria_text):
-    """
-    Parses custom markdown criteria text and extracts names and weights.
-    Format: 'Name | Description | Weight%' or 'Name | Weight%'
-    """
-    rubric = {}
-    if not criteria_text:
-        return None
-        
-    lines = criteria_text.split('\n')
-    for line in lines:
-        line = line.strip()
-        if not line or '|' not in line:
-            continue
-            
-        parts = [p.strip() for p in line.split('|')]
-        # Filter table header
-        if any(h in parts[0].lower() for h in ["nhóm tiêu chí", "tiêu chí", "rubric", "---"]):
-            continue
-            
-        name = parts[0]
-        
-        # Try to find weight (percentage) in the last columns
-        weight = 0.0
-        weight_found = False
-        for part in reversed(parts[1:]):
-            match = re.search(r'(\d+(?:\.\d+)?)\s*%', part)
-            if match:
-                weight = float(match.group(1)) / 100.0
-                weight_found = True
-                break
-                
-        if not weight_found:
-            # Fallback weight if not explicitly written
-            weight = 0.05
-            
-        # Map to heuristic key
-        mapped_key = "readability" # default fallback key
-        for item in HEURISTIC_MAPPING:
-            if any(kw in name.lower() for kw in item["keywords"]):
-                mapped_key = item["key"]
-                break
-                
-        rubric[name] = {"weight": weight, "key": mapped_key}
-        
-    return rubric if len(rubric) > 0 else None
+DEFAULT_CRITERIA_TEXT = """Project structure | 10%
+Readable code | 10%
+Widget decomposition | 10%
+Separation of UI and logic | 10%
+State management | 10%
+Navigation | 8%
+Data models | 8%
+Error handling | 8%
+Responsive UI | 8%
+Code reuse | 6%
+Resource management | 6%
+Basic performance | 6%
+Extensibility | 6%
+Coding convention | 6%
+Testing or manual verification | 6%"""
 
-def get_heuristic_score_for_key(key, analysis):
-    """
-    Calculate the score and feedback for a specific heuristic key.
-    """
+
+def _map_heuristic_key(name: str) -> str:
+    normalized = name.lower()
+    for item in HEURISTIC_MAPPING:
+        if any(keyword in normalized for keyword in item["keywords"]):
+            return item["key"]
+    return "readability"
+
+
+def _extract_weight(text: str) -> Optional[float]:
+    match = re.search(r"(\d+(?:\.\d+)?)\s*%", text)
+    if not match:
+        return None
+    return float(match.group(1)) / 100.0
+
+
+def _clean_criterion_name(text: str) -> str:
+    text = re.sub(r"^\s*[-*]\s+", "", text)
+    text = re.sub(r"^\s*\d+[\.)]\s*", "", text)
+    text = re.sub(r"\s*\(?\d+(?:\.\d+)?\s*%\)?\s*$", "", text)
+    return text.strip(" :-\t")
+
+
+def parse_rubric(criteria_text: Optional[str]) -> Optional[Dict[str, Dict[str, Any]]]:
+    if not criteria_text or not criteria_text.strip():
+        return None
+
+    raw_items = []
+    for raw_line in criteria_text.splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        lowered = line.lower()
+        if set(line.replace("|", "").strip()) <= {"-"}:
+            continue
+        if any(header in lowered for header in ["criteria", "rubric", "weight"]) and "|" in line:
+            continue
+
+        if "|" in line:
+            parts = [part.strip() for part in line.split("|") if part.strip()]
+            if not parts:
+                continue
+            name = _clean_criterion_name(parts[0])
+            weight = None
+            for part in reversed(parts):
+                weight = _extract_weight(part)
+                if weight is not None:
+                    break
+        else:
+            name = _clean_criterion_name(line)
+            weight = _extract_weight(line)
+
+        if name:
+            raw_items.append({"name": name, "weight": weight})
+
+    if not raw_items:
+        return None
+
+    explicit_weight = sum(item["weight"] for item in raw_items if item["weight"] is not None)
+    missing = [item for item in raw_items if item["weight"] is None]
+    if missing:
+        remaining = max(0.0, 1.0 - explicit_weight)
+        even_weight = remaining / len(missing) if remaining > 0 else 1.0 / len(raw_items)
+        for item in missing:
+            item["weight"] = even_weight
+
+    total_weight = sum(item["weight"] for item in raw_items)
+    if total_weight <= 0:
+        return None
+
+    rubric = {}
+    for item in raw_items:
+        normalized_weight = item["weight"] / total_weight
+        rubric[item["name"]] = {
+            "weight": normalized_weight,
+            "key": _map_heuristic_key(item["name"]),
+        }
+
+    return rubric
+
+
+def get_heuristic_score_for_key(key: str, analysis: Dict[str, Any]) -> Dict[str, Any]:
     if key == "structure":
         struct_score = analysis["structure"]["folder_structure_score"] / 10.0
+        details = analysis["structure"].get("details") or []
         return {
             "score": struct_score,
-            "feedback": f"Cấu trúc thư mục đạt {struct_score*10}%. " + 
-                        ("; ".join(analysis["structure"]["details"]) if analysis["structure"]["details"] else "")
+            "feedback": f"Folder structure score is {struct_score * 10:.0f}%. {'; '.join(details)}",
         }
-        
-    elif key == "readability":
-        readability = 10.0
+
+    if key == "readability":
         large_files_count = len(analysis["stats"]["large_files"])
-        readability -= min(3.0, large_files_count * 1.0)
+        score = max(4.0, 10.0 - min(3.0, large_files_count * 1.0))
         return {
-            "score": readability,
-            "feedback": f"Phân tích kích thước file. Có {large_files_count} file lớn (>300 dòng) ảnh hưởng tới khả năng đọc."
+            "score": score,
+            "feedback": f"Found {large_files_count} large files over 300 lines.",
         }
-        
-    elif key == "widgets":
-        widget_score = 9.0
-        large_files = analysis["stats"]["large_files"]
-        for lf in large_files:
-            if "screen" in lf["file"].lower() or "widget" in lf["file"].lower():
-                widget_score -= 1.0
+
+    if key == "widgets":
+        score = 9.0
+        for large_file in analysis["stats"]["large_files"]:
+            path = large_file["file"].lower()
+            if "screen" in path or "widget" in path:
+                score -= 1.0
         return {
-            "score": max(5.0, widget_score),
-            "feedback": "Cần xem xét tách các screen/widget con ở những file dài."
+            "score": max(5.0, score),
+            "feedback": "Large screen/widget files may need decomposition into smaller widgets.",
         }
-        
-    elif key == "logic":
-        logic_score = 7.0
-        if len(analysis["heuristics"]["api_calls_in_build"]) > 0:
-            logic_score -= 3.0
+
+    if key == "logic":
+        violations = len(analysis["heuristics"]["api_calls_in_build"])
         return {
-            "score": max(4.0, logic_score),
-            "feedback": f"Có {len(analysis['heuristics']['api_calls_in_build'])} vi phạm gọi API trực tiếp trong build()."
+            "score": max(4.0, 7.0 - violations * 3.0),
+            "feedback": f"Found {violations} possible API calls inside build methods.",
         }
-        
-    elif key == "state":
-        has_state_mgr = len(analysis["heuristics"]["state_management"]) > 0
-        state_score = 9.0 if has_state_mgr else 6.0
-        feedback_sm = f"Sử dụng quản lý state: {', '.join(analysis['heuristics']['state_management'])}" if has_state_mgr else "Không tìm thấy Provider, Bloc, Riverpod hay GetX."
+
+    if key == "state":
+        managers = analysis["heuristics"]["state_management"]
         return {
-            "score": state_score,
-            "feedback": feedback_sm
+            "score": 9.0 if managers else 6.0,
+            "feedback": f"Detected state management: {', '.join(managers)}" if managers else "No common state management package detected.",
         }
-        
-    elif key == "navigation":
-        nav_score = 8.5 if len(analysis["heuristics"]["navigation_patterns"]) > 0 else 6.0
+
+    if key == "navigation":
+        count = len(analysis["heuristics"]["navigation_patterns"])
         return {
-            "score": nav_score,
-            "feedback": f"Tìm thấy điều hướng trong {len(analysis['heuristics']['navigation_patterns'])} files."
+            "score": 8.5 if count else 6.0,
+            "feedback": f"Detected navigation usage in {count} files.",
         }
-        
-    elif key == "models":
+
+    if key == "models":
         has_models = analysis["structure"]["has_models"]
-        models_score = 9.0 if has_models else 6.0
-        feedback_models = "Có định nghĩa models rõ ràng." if has_models else "Không tìm thấy thư mục model. Khuyến khích dùng class thay vì Map thô."
         return {
-            "score": models_score,
-            "feedback": feedback_models
+            "score": 9.0 if has_models else 6.0,
+            "feedback": "Model structure detected." if has_models else "No clear model folder or model structure detected.",
         }
-        
-    elif key == "errors":
-        err_count = analysis["heuristics"]["error_handling_count"]
-        err_score = min(10.0, 5.0 + err_count * 0.5)
+
+    if key == "errors":
+        count = analysis["heuristics"]["error_handling_count"]
         return {
-            "score": err_score,
-            "feedback": f"Phát hiện {err_count} khối xử lý try-catch."
+            "score": min(10.0, 5.0 + count * 0.5),
+            "feedback": f"Detected {count} try/catch blocks.",
         }
-        
-    elif key == "responsive":
-        resp_widgets = analysis["heuristics"]["responsive_widgets_used"]
-        resp_score = min(10.0, 5.0 + len(resp_widgets) * 1.5)
+
+    if key == "responsive":
+        widgets = analysis["heuristics"]["responsive_widgets_used"]
         return {
-            "score": resp_score,
-            "feedback": f"Sử dụng các widgets layout/responsive: {', '.join(resp_widgets)}"
+            "score": min(10.0, 5.0 + len(widgets) * 1.5),
+            "feedback": f"Responsive/layout widgets used: {', '.join(widgets) if widgets else 'none detected'}.",
         }
-        
-    elif key == "reusability":
-        return {
-            "score": 7.5,
-            "feedback": "Cần xem xét để tránh lặp code. Tách các hằng số dùng chung vào Core/Constants."
-        }
-        
-    elif key == "resources":
+
+    if key == "resources":
         has_assets = analysis["heuristics"]["pubspec_details"].get("has_assets", False)
-        res_score = 9.0 if has_assets else 6.0
         return {
-            "score": res_score,
-            "feedback": "Đã định nghĩa tài nguyên trong pubspec.yaml." if has_assets else "Không cấu hình assets trong pubspec.yaml."
+            "score": 9.0 if has_assets else 6.0,
+            "feedback": "Assets are configured in pubspec.yaml." if has_assets else "No assets configuration detected in pubspec.yaml.",
         }
-        
-    elif key == "performance":
-        perf_score = 9.0
-        if len(analysis["heuristics"]["api_calls_in_build"]) > 0:
-            perf_score -= 2.0
+
+    if key == "performance":
+        violations = len(analysis["heuristics"]["api_calls_in_build"])
         return {
-            "score": perf_score,
-            "feedback": "Không có gọi API lặp trong build() nếu đạt 9/10."
+            "score": max(5.0, 9.0 - violations * 2.0),
+            "feedback": "Performance risk increases when API calls or heavy work happen in build methods.",
         }
-        
-    elif key == "extensibility":
-        return {
-            "score": 7.5,
-            "feedback": "Khả năng mở rộng phụ thuộc vào cấu trúc module hóa lib/."
-        }
-        
-    elif key == "convention":
+
+    if key == "convention":
         violations = len(analysis["stats"]["naming_violations"])
-        conv_score = max(4.0, 10.0 - violations * 0.5)
         return {
-            "score": conv_score,
-            "feedback": f"Phát hiện {violations} lỗi convention (tên file hoặc tên class)."
+            "score": max(4.0, 10.0 - violations * 0.5),
+            "feedback": f"Detected {violations} naming convention issues.",
         }
-        
-    elif key == "testing":
+
+    if key == "testing":
         return {
             "score": 6.0,
-            "feedback": "Cần bổ sung thêm unit test hoặc widget test."
+            "feedback": "Static analysis cannot fully verify unit/widget tests; review test coverage manually.",
         }
-        
-    return {"score": 7.0, "feedback": "Đánh giá tiêu chí chung."}
 
-def fallback_heuristic_grade(analysis, parsed_rubric=None):
-    """
-    Generate heuristic scores based on the static analysis and dynamic rubric.
-    """
+    if key == "reusability":
+        return {
+            "score": 7.5,
+            "feedback": "Review repeated widgets, constants, and shared utilities for reuse opportunities.",
+        }
+
+    if key == "extensibility":
+        return {
+            "score": 7.5,
+            "feedback": "Extensibility depends on clear module boundaries and separation of responsibilities.",
+        }
+
+    return {"score": 7.0, "feedback": "General heuristic evaluation."}
+
+
+def fallback_heuristic_grade(
+    analysis: Dict[str, Any],
+    parsed_rubric: Optional[Dict[str, Dict[str, Any]]] = None,
+    provider_error: Optional[str] = None,
+) -> Dict[str, Any]:
+    rubric_to_use = parsed_rubric or parse_rubric(DEFAULT_CRITERIA_TEXT)
     scores = {}
-    
-    # Use parsed rubric or fallback to default
-    rubric_to_use = parsed_rubric
-    if not rubric_to_use:
-        # Reconstruct default
-        from grader import DEFAULT_RUBRIC
-        rubric_to_use = DEFAULT_RUBRIC
-        
     total_score = 0.0
     total_weight = 0.0
-    
+
     for name, item in rubric_to_use.items():
-        res = get_heuristic_score_for_key(item["key"], analysis)
-        scores[name] = res
-        total_score += res["score"] * item["weight"]
+        result = get_heuristic_score_for_key(item["key"], analysis)
+        scores[name] = result
+        total_score += result["score"] * item["weight"]
         total_weight += item["weight"]
-        
-    # Normalize score if weights do not sum up to 1.0
-    final_score = (total_score / total_weight) if total_weight > 0 else total_score
-    
-    return {
+
+    final_score = (total_score / total_weight) if total_weight > 0 else 0.0
+    warnings = list(analysis["heuristics"]["api_calls_in_build"]) + list(analysis["stats"]["naming_violations"])
+    if provider_error:
+        warnings.insert(0, f"AI provider failed; default-template heuristic fallback was used. Error: {provider_error}")
+
+    report = {
         "overall_score": round(final_score, 2),
         "criteria_breakdown": scores,
-        "summary": "Kết quả được chấm điểm tự động bằng hệ thống heuristics tĩnh. Cung cấp Gemini API Key để được đánh giá sâu sắc hơn.",
-        "warnings": analysis["heuristics"]["api_calls_in_build"] + analysis["stats"]["naming_violations"]
+        "summary": "Automatic heuristic grading was used. Configure OpenRouter successfully for AI-based rubric review.",
+        "warnings": warnings,
+        "provider": "openrouter",
+        "model": None,
+        "grading_mode": "heuristic",
     }
+    if provider_error:
+        report["provider_error"] = provider_error
 
-def get_key_files_content(project_path):
-    """
-    Get content of primary flutter files to provide context to Gemini
-    """
+    return report
+
+
+def get_key_files_content(project_path: str) -> Dict[str, str]:
     file_contents = {}
     lib_path = os.path.join(project_path, "lib")
     if not os.path.exists(lib_path):
         return file_contents
-        
-    targets = ['main.dart', 'pubspec.yaml']
-    
+
     for root, dirs, files in os.walk(lib_path):
-        for file in files:
-            if file.endswith('.dart') and len(file_contents) < 12:
-                file_path = os.path.join(root, file)
-                rel_path = os.path.relpath(file_path, project_path)
-                
-                is_key = any(k in file.lower() for k in ['controller', 'provider', 'bloc', 'model', 'screen', 'service', 'main'])
-                if is_key or len(file_contents) < 5:
-                    try:
-                        with open(file_path, 'r', encoding='utf-8') as f:
-                            lines = f.readlines()
-                            file_contents[rel_path] = "".join(lines[:150]) + ("\n... [Đã cắt bớt file]" if len(lines) > 150 else "")
-                    except:
-                        pass
-                        
-    pub_path = os.path.join(project_path, 'pubspec.yaml')
-    if os.path.exists(pub_path):
+        dirs[:] = [d for d in dirs if d not in {".dart_tool", "build"}]
+        for file_name in files:
+            if not file_name.endswith(".dart") or len(file_contents) >= 12:
+                continue
+            file_path = os.path.join(root, file_name)
+            rel_path = os.path.relpath(file_path, project_path)
+            is_key = any(
+                token in file_name.lower()
+                for token in ["controller", "provider", "bloc", "model", "screen", "service", "main"]
+            )
+            if not is_key and len(file_contents) >= 5:
+                continue
+            try:
+                with open(file_path, "r", encoding="utf-8") as handle:
+                    lines = handle.readlines()
+                file_contents[rel_path] = "".join(lines[:150]) + ("\n... [truncated]" if len(lines) > 150 else "")
+            except OSError:
+                continue
+
+    pubspec_path = os.path.join(project_path, "pubspec.yaml")
+    if os.path.exists(pubspec_path):
         try:
-            with open(pub_path, 'r', encoding='utf-8') as f:
-                file_contents['pubspec.yaml'] = f.read()
-        except:
+            with open(pubspec_path, "r", encoding="utf-8") as handle:
+                file_contents["pubspec.yaml"] = handle.read()
+        except OSError:
             pass
-            
+
     return file_contents
 
-def grade_project_with_gemini(project_path, api_key, analysis_report, custom_criteria_text=None):
-    parsed_rubric = parse_rubric(custom_criteria_text)
-    
-    if not api_key:
-        return fallback_heuristic_grade(analysis_report, parsed_rubric)
-        
-    try:
-        genai.configure(api_key=api_key)
-        
-        # Prepare context of codebase
-        key_files = get_key_files_content(project_path)
-        codebase_summary = "\n\n".join([f"--- FILE: {path} ---\n{content}" for path, content in key_files.items()])
-        
-        # Default criteria if none provided
-        criteria_str = custom_criteria_text
-        if not criteria_str:
-            criteria_str = "Cấu trúc project | 10%\nCode dễ đọc | 10%\nTách UI widget | 10%\nTách logic khỏi UI | 10%\nQuản lý state | 10%\nNavigation | 8%\nModel | 8%\nXử lý lỗi | 8%\nResponsive UI | 8%\nTái sử dụng | 6%\nHiệu năng | 6%\nHoàn thiện | 6%\nQuản lý tài nguyên | 6%\nCode mở rộng | 6%\nConvention | 6%"
-            parsed_rubric = parse_rubric(criteria_str)
 
-        # Dynamically build JSON schema requirements
-        schema_examples = {}
-        weight_list_str = []
-        for name, item in parsed_rubric.items():
-            schema_examples[name] = {
-                "score": 0.0,
-                "feedback": "Lời khuyên/nhận xét cho tiêu chí này"
-            }
-            weight_list_str.append(f"- {name}: {int(item['weight']*100)}%")
-            
-        weights_instruction = "\n".join(weight_list_str)
+def build_grading_prompt(
+    project_path: str,
+    analysis_report: Dict[str, Any],
+    criteria_text: str,
+    parsed_rubric: Dict[str, Dict[str, Any]],
+) -> str:
+    key_files = get_key_files_content(project_path)
+    codebase_summary = "\n\n".join(f"--- FILE: {path} ---\n{content}" for path, content in key_files.items())
+    schema_examples = {
+        name: {"score": 0.0, "feedback": "Evidence-based feedback for this criterion"}
+        for name in parsed_rubric
+    }
+    weights_instruction = "\n".join(
+        f"- {name}: {item['weight'] * 100:.2f}%" for name, item in parsed_rubric.items()
+    )
 
-        prompt = f"""
-Bạn là giảng viên hoặc chuyên gia review code di động (Flutter/Dart). Nhiệm vụ của bạn là chấm điểm bài tập lớn của sinh viên dựa trên source code được cung cấp dưới đây và báo cáo phân tích tĩnh (Static Analysis).
+    return f"""
+You are a senior Flutter/Dart code reviewer grading a student project.
+Use the provided source excerpts and static analysis as evidence. Grade only against the user's criteria.
 
-Dưới đây là một số file chính trong dự án Flutter:
+Source excerpts:
 {codebase_summary}
 
-Báo cáo phân tích tĩnh (thư mục, vi phạm đặt tên, file lớn):
+Static analysis JSON:
 {json.dumps(analysis_report, ensure_ascii=False, indent=2)}
 
-Tiêu chí chấm điểm:
-{criteria_str}
+User criteria template:
+{criteria_text}
 
-Hãy trả về kết quả dưới định dạng JSON duy nhất. JSON trả về phải khớp với cấu trúc sau:
+Weights to apply:
+{weights_instruction}
+
+Return exactly one JSON object with this schema:
 {{
-  "overall_score": <điểm tổng hợp từ 0.0 đến 10.0, tính theo trọng số và làm tròn đến 2 chữ số thập phân>,
+  "overall_score": <number from 0.0 to 10.0>,
   "criteria_breakdown": {json.dumps(schema_examples, ensure_ascii=False, indent=4)},
-  "summary": "<Tổng hợp điểm mạnh và điểm yếu lớn nhất của dự án>",
-  "warnings": [
-     "<Cảnh báo lỗi/Anti-pattern 1>",
-     "<Cảnh báo lỗi/Anti-pattern 2>"
-  ]
+  "summary": "<concise Vietnamese summary of strengths and weaknesses>",
+  "warnings": ["<specific issue or risk>"]
 }}
 
-LƯU Ý: 
-- Tính toán điểm tổng hợp (overall_score) dựa trên trọng số sau:
-{weights_instruction}
-- Trả về đúng các tiêu chí được định nghĩa trong JSON breakdown ở trên.
-- Đưa ra phản hồi bằng Tiếng Việt thân thiện, mang tính xây dựng và chính xác cao.
-- Không trả về bất kỳ text nào ngoài JSON thô.
-"""
+Rules:
+- Return valid JSON only.
+- Use the exact criterion names shown in criteria_breakdown.
+- Each criterion score must be from 0.0 to 10.0.
+- Base feedback on the static analysis and source excerpts. If evidence is missing, say what needs manual review.
+""".strip()
 
-        model = genai.GenerativeModel("gemini-2.5-flash")
-        response = model.generate_content(
-            prompt,
-            generation_config={"response_mime_type": "application/json"}
-        )
-        
-        return json.loads(response.text)
-        
-    except Exception as e:
-        # Fallback to heuristic
-        res = fallback_heuristic_grade(analysis_report, parsed_rubric)
-        res["summary"] = f"Lỗi gọi Gemini API ({str(e)}). Đã chuyển sang chế độ chấm tĩnh tự động."
-        return res
 
-# Retain default rubric variable for fallback compatibility
-DEFAULT_RUBRIC = {
-    "1. Cấu trúc project rõ ràng": {"weight": 0.10, "key": "structure"},
-    "2. Code dễ đọc, dễ hiểu": {"weight": 0.10, "key": "readability"},
-    "3. Tách UI thành các widget nhỏ": {"weight": 0.10, "key": "widgets"},
-    "4. Tách logic khỏi UI": {"weight": 0.10, "key": "logic"},
-    "5. Quản lý state hợp lý": {"weight": 0.10, "key": "state"},
-    "6. Xử lý navigation đúng": {"weight": 0.08, "key": "navigation"},
-    "7. Quản lý dữ liệu bằng model": {"weight": 0.08, "key": "models"},
-    "8. Xử lý lỗi và ngoại lệ": {"weight": 0.08, "key": "errors"},
-    "9. Giao diện responsive và không bị overflow": {"weight": 0.08, "key": "responsive"},
-    "10. Tái sử dụng code": {"weight": 0.06, "key": "reusability"},
-    "11. Quản lý tài nguyên tốt": {"weight": 0.06, "key": "resources"},
-    "12. Hiệu năng cơ bản": {"weight": 0.06, "key": "performance"},
-    "13. Code có khả năng mở rộng": {"weight": 0.06, "key": "extensibility"},
-    "14. Tuân thủ coding convention": {"weight": 0.06, "key": "convention"},
-    "15. Có kiểm thử hoặc kiểm tra chức năng cơ bản": {"weight": 0.06, "key": "testing"}
-}
+def grade_project(
+    project_path: str,
+    analysis_report: Dict[str, Any],
+    criteria_text: Optional[str] = None,
+) -> Dict[str, Any]:
+    criteria_for_ai = criteria_text.strip() if criteria_text and criteria_text.strip() else DEFAULT_CRITERIA_TEXT
+    parsed_rubric = parse_rubric(criteria_for_ai) or parse_rubric(DEFAULT_CRITERIA_TEXT)
+    prompt = build_grading_prompt(project_path, analysis_report, criteria_for_ai, parsed_rubric)
+
+    provider = OpenRouterProvider()
+    provider_result = provider.generate_json(prompt)
+    if provider_result.ok:
+        report = provider_result.data
+        report["provider"] = provider_result.provider
+        report["model"] = provider_result.model
+        report["grading_mode"] = "ai"
+        return report
+
+    default_rubric = parse_rubric(DEFAULT_CRITERIA_TEXT)
+    report = fallback_heuristic_grade(
+        analysis_report,
+        default_rubric,
+        provider_error=provider_result.error,
+    )
+    report["provider"] = provider_result.provider
+    report["model"] = provider_result.model
+    return report
+
+
+DEFAULT_RUBRIC = parse_rubric(DEFAULT_CRITERIA_TEXT)

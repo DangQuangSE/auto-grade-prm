@@ -10,114 +10,98 @@
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <!-- Notebook Spiral Binder Holes on the extreme left -->
     <div class="binder-spiral">
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
-        <div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
+        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
     </div>
 
-    <!-- Solid Red Margin Line -->
     <div class="notebook-margin-line"></div>
 
     <div class="app-container">
-        <!-- Left Side: Controls Form (Stationery card style) -->
         <aside class="sidebar">
             <div class="logo-area">
                 <span class="logo-m">M</span>
                 <h1>Marginalia</h1>
             </div>
-            <p class="subtitle-tag">✎ A FLUTTER GRADEOUT TOOL</p>
-            
+            <p class="subtitle-tag">A FLUTTER GRADEOUT TOOL</p>
+
             <form id="gradeForm" class="control-form">
                 <div class="input-group">
-                    <label for="githubUrl">Dự án Flutter (Git / Local)</label>
-                    <input type="text" id="githubUrl" placeholder="https://github.com/... hoặc D:\path" required autocomplete="off">
+                    <label for="githubUrl">Flutter project (Git / Local)</label>
+                    <input type="text" id="githubUrl" placeholder="https://github.com/... or D:\path" required autocomplete="off">
+                </div>
+
+                <div class="provider-status" id="providerStatus">
+                    <span class="provider-dot"></span>
+                    <span id="providerStatusText">AI provider: loading...</span>
                 </div>
 
                 <div class="input-group">
-                    <label for="geminiKey">Gemini API Key (Tùy chọn)</label>
-                    <input type="password" id="geminiKey" placeholder="Nhập API key nếu muốn chấm bằng AI...">
-                </div>
-
-                <div class="input-group">
-                    <label for="customCriteria">Tiêu chí chấm (Rubric)</label>
-                    <textarea id="customCriteria" rows="7" placeholder="Nhập tiêu chí chấm điểm..."></textarea>
-                    <span class="input-hint" id="criteriaHint">Vui lòng nhập tiêu chí chấm điểm trước khi thực hiện.</span>
+                    <label for="customCriteria">Criteria template</label>
+                    <input type="file" id="criteriaFile" accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain">
+                    <textarea id="customCriteria" rows="8" placeholder="Paste grading criteria here..."></textarea>
+                    <span class="input-hint" id="criteriaHint">Please enter or upload criteria before grading.</span>
                 </div>
 
                 <button type="submit" id="submitBtn" class="stationery-btn save-btn">
-                    <span class="btn-text">Chấm bài ngay</span>
+                    <span class="btn-text">Grade project</span>
                     <div class="spinner hidden"></div>
                 </button>
             </form>
 
             <div class="sidebar-footer">
-                <p>V. Alpha • Spring 26</p>
-                <p>Lập trình di động (PRM)</p>
+                <p>V. Alpha</p>
+                <p>PRM Flutter grading</p>
             </div>
         </aside>
 
-        <!-- Right Side: Ruled paper contents -->
         <main class="main-content">
-            <!-- Welcome / Home View -->
             <div id="welcomeView" class="view-panel active">
                 <div class="welcome-card notebook-card">
-                    <div class="card-header-badge">✎ A SCHOOL-NOTEBOOK SYSTEM</div>
+                    <div class="card-header-badge">AI RUBRIC GRADING</div>
                     <h2 class="handwritten-title">Flutter.grader</h2>
-                    <p class="handwritten-sub">Ruled cream paper, ink-navy writing, and a single red margin to keep the page honest.</p>
-                    
+                    <p class="handwritten-sub">Static Flutter analysis plus OpenRouter-based grading against your criteria template.</p>
+
                     <div class="features-shelf">
                         <div class="shelf-item">
-                            <span class="shelf-icon">📄</span>
-                            <h4>Cấu trúc lib/</h4>
-                            <p>Đánh giá sự phân chia clean architecture hoặc features-first.</p>
+                            <span class="shelf-icon">LIB</span>
+                            <h4>Project structure</h4>
+                            <p>Reviews lib organization, feature folders, models, services, and widgets.</p>
                         </div>
                         <div class="shelf-item">
-                            <span class="shelf-icon">✍</span>
-                            <h4>Naming Convention</h4>
-                            <p>Quét các quy tắc PascalCase class, camelCase và snake_case file.</p>
+                            <span class="shelf-icon">AI</span>
+                            <h4>Dynamic rubric</h4>
+                            <p>Paste or upload any assignment criteria template for the grading run.</p>
                         </div>
                         <div class="shelf-item">
-                            <span class="shelf-icon">💡</span>
-                            <h4>Anti-Patterns</h4>
-                            <p>Cảnh báo việc gọi API trực tiếp trong build hoặc lạm dụng Map.</p>
+                            <span class="shelf-icon">QA</span>
+                            <h4>Warnings</h4>
+                            <p>Highlights naming issues, large files, build-time calls, and provider fallback.</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Loading View -->
             <div id="loadingView" class="view-panel hidden">
                 <div class="loading-notebook">
-                    <div class="pencil-loader">✏️</div>
-                    <h2 class="handwritten-title">Đang chấm bài...</h2>
-                    <p>Hệ thống đang quét source code và tính toán điểm số.</p>
-                    
+                    <div class="pencil-loader">...</div>
+                    <h2 class="handwritten-title">Grading project...</h2>
+                    <p>Scanning Flutter source and preparing the grading report.</p>
+
                     <div class="log-terminal">
                         <div class="terminal-header">
-                            <span class="term-title">Báo cáo tiến trình</span>
+                            <span class="term-title">Progress report</span>
                         </div>
                         <div id="logTerminalContent" class="terminal-body">
-                            <p class="log-line info">> Khởi chạy bộ kiểm tra...</p>
+                            <p class="log-line info">> Starting checks...</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Results View -->
             <div id="resultsView" class="view-panel hidden">
                 <div class="results-header">
                     <div>
@@ -125,46 +109,35 @@
                         <span id="resultRepoType" class="tag-badge">GitHub Project</span>
                     </div>
                     <div class="actions-row">
-                        <button id="exportMdBtn" class="stationery-btn reset-btn">Xuất Markdown</button>
-                        <button id="printBtn" class="stationery-btn hint-btn">In / Lưu PDF</button>
+                        <button id="exportMdBtn" class="stationery-btn reset-btn">Export Markdown</button>
+                        <button id="printBtn" class="stationery-btn hint-btn">Print / Save PDF</button>
                     </div>
                 </div>
 
                 <div class="summary-dashboard">
-                    <!-- Grade Stamp (Red A+ style) -->
                     <div class="grade-stamp-card">
                         <div class="stamp-circle">
-                            <span id="scoreVal">A+</span>
+                            <span id="scoreVal">--</span>
                         </div>
-                        <span class="stamp-label">DIỂM THI</span>
+                        <span class="stamp-label">SCORE</span>
                     </div>
 
-                    <!-- Yellow Sticky Note Summary -->
                     <div class="sticky-note">
                         <div class="sticky-note-tape"></div>
-                        <h3 class="sticky-note-title">Hey –</h3>
-                        <p id="aiSummaryText" class="sticky-note-text">
-                            Nhận xét tổng hợp từ giảng viên/hệ thống chấm điểm sẽ được ghi chú tại đây.
-                        </p>
+                        <h3 class="sticky-note-title">Summary</h3>
+                        <p id="aiSummaryText" class="sticky-note-text">The grading summary will appear here.</p>
                     </div>
                 </div>
 
-                <!-- 2 Columns Grid: Criteria & Warnings -->
                 <div class="details-grid">
-                    <!-- Criteria -->
                     <div class="notebook-card criteria-shelf">
-                        <h3 class="shelf-title">📋 BẢNG ĐIỂM CHI TIẾT</h3>
-                        <div id="criteriaList" class="criteria-list">
-                            <!-- JS populated -->
-                        </div>
+                        <h3 class="shelf-title">Criteria breakdown</h3>
+                        <div id="criteriaList" class="criteria-list"></div>
                     </div>
 
-                    <!-- Warnings -->
                     <div class="notebook-card warnings-shelf">
-                        <h3 class="shelf-title">⚠️ LỖI & CẢNH BÁO</h3>
-                        <div id="warningsList" class="warnings-list">
-                            <!-- JS populated -->
-                        </div>
+                        <h3 class="shelf-title">Warnings</h3>
+                        <div id="warningsList" class="warnings-list"></div>
                     </div>
                 </div>
             </div>

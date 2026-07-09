@@ -9,6 +9,7 @@
     --marker-yellow: #f5cf6e;
     --mint-green: #d5ebd9;
     --eraser-pink: #e8b7be;
+    --success: #10b981;
     --graphite: #3b4756;
     
     --border-thickness: 2px;
@@ -151,6 +152,40 @@ body {
     font-family: 'Inter', sans-serif;
     font-size: 0.9rem;
     transition: box-shadow 0.2s ease;
+}
+
+.input-group input[type="file"] {
+    padding: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.provider-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: #ffffff;
+    border: var(--border-thickness) solid var(--ink-navy);
+    border-radius: 8px;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+    color: var(--graphite);
+}
+
+.provider-dot {
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--ink-navy);
+    border-radius: 50%;
+    background: var(--marker-yellow);
+    flex-shrink: 0;
+}
+
+.provider-status.configured .provider-dot {
+    background: var(--success);
+}
+
+.provider-status.missing .provider-dot {
+    background: var(--margin-red);
 }
 
 .input-group input:focus, 
