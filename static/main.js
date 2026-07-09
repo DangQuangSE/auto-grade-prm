@@ -6,7 +6,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsView = document.getElementById("resultsView");
     const logTerminalContent = document.getElementById("logTerminalContent");
     const scoreVal = document.getElementById("scoreVal");
-    const gaugeScoreFill = document.getElementById("gaugeScoreFill");
     const aiSummaryText = document.getElementById("aiSummaryText");
     const resultRepoTitle = document.getElementById("resultRepoTitle");
     const resultRepoType = document.getElementById("resultRepoType");
@@ -14,17 +13,37 @@ document.addEventListener("DOMContentLoaded", () => {
     const warningsList = document.getElementById("warningsList");
     const exportMdBtn = document.getElementById("exportMdBtn");
     const printBtn = document.getElementById("printBtn");
+    const submitBtn = document.getElementById("submitBtn");
+    const criteriaHint = document.getElementById("criteriaHint");
 
     let currentReport = null;
+
+    function validateCriteria() {
+        const hasContent = customCriteria.value.trim() !== "";
+        submitBtn.disabled = !hasContent;
+        if (!hasContent) {
+            criteriaHint.innerHTML = "⚠️ Vui lòng nhập tiêu chí chấm điểm trước khi thực hiện.";
+            criteriaHint.style.color = "var(--margin-red)";
+            criteriaHint.style.fontWeight = "bold";
+        } else {
+            criteriaHint.innerHTML = "✎ Có thể điều chỉnh Rubric chấm điểm ở trên.";
+            criteriaHint.style.color = "var(--graphite)";
+            criteriaHint.style.fontWeight = "normal";
+        }
+    }
+
+    customCriteria.addEventListener("input", validateCriteria);
 
     // Load default criteria on start
     fetch("/api/criteria")
         .then(res => res.json())
         .then(data => {
             customCriteria.value = data.criteria;
+            validateCriteria();
         })
         .catch(err => {
             console.error("Không thể lấy tiêu chí mặc định:", err);
+            validateCriteria();
         });
 
     // Handle Form Submit
@@ -111,20 +130,17 @@ document.addEventListener("DOMContentLoaded", () => {
         resultRepoTitle.innerText = report.repository;
         resultRepoType.innerText = report.is_local ? "Local Directory" : "GitHub Repository";
 
-        // Score Gauge
+        // Score Stamp
         const score = report.overall_score;
         scoreVal.innerText = score.toFixed(1);
         
-        // Gauge stroke offset calculation
-        // stroke-dasharray = 283 (approx 2 * pi * 45)
-        const offset = 283 - (283 * (score / 10));
-        gaugeScoreFill.style.strokeDashoffset = offset;
-
-        // Apply gradient or color based on score
-        let strokeColor = "var(--error)";
-        if (score >= 8.0) strokeColor = "var(--success)";
-        else if (score >= 5.0) strokeColor = "var(--warning)";
-        gaugeScoreFill.style.stroke = strokeColor;
+        const stampCircle = document.querySelector(".stamp-circle");
+        if (stampCircle) {
+            stampCircle.className = "stamp-circle"; // reset
+            if (score >= 8.0) stampCircle.classList.add("high");
+            else if (score >= 5.0) stampCircle.classList.add("mid");
+            else stampCircle.classList.add("low");
+        }
 
         // AI Summary
         aiSummaryText.innerHTML = report.summary.replace(/\n/g, "<br>");

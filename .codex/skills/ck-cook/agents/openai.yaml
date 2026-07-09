@@ -1,0 +1,4 @@
+interface:
+  display_name: "Cook & Implement"
+  short_description: "Implement a planned feature phase by phase"
+  default_prompt: "Use /ck:cook to execute implementation phases with testing and code review"

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Fix & Debug"
+  short_description: "Fix a bug using Scout → Diagnose → Fix → Review → Finalize"
+  default_prompt: "Use /ck:fix to systematically diagnose and fix bugs with code review"

@@ -3,76 +3,97 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flutter Code Auto-Grader</title>
+    <title>Marginalia - Flutter Code Grader</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-    <div class="glow-bg"></div>
+    <!-- Notebook Spiral Binder Holes on the extreme left -->
+    <div class="binder-spiral">
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+        <div class="hole"></div>
+    </div>
+
+    <!-- Solid Red Margin Line -->
+    <div class="notebook-margin-line"></div>
+
     <div class="app-container">
-        <!-- Sidebar - Controls -->
+        <!-- Left Side: Controls Form (Stationery card style) -->
         <aside class="sidebar">
             <div class="logo-area">
-                <div class="logo-icon">⚡</div>
-                <h1>FlutterGrader</h1>
+                <span class="logo-m">M</span>
+                <h1>Marginalia</h1>
             </div>
+            <p class="subtitle-tag">✎ A FLUTTER GRADEOUT TOOL</p>
             
             <form id="gradeForm" class="control-form">
                 <div class="input-group">
-                    <label for="githubUrl">GitHub Repository / Local Path</label>
-                    <input type="text" id="githubUrl" placeholder="https://github.com/... hoặc D:\flutter_project" required autocomplete="off">
-                    <span class="input-hint">Nhập URL git hoặc đường dẫn thư mục trên máy</span>
+                    <label for="githubUrl">Dự án Flutter (Git / Local)</label>
+                    <input type="text" id="githubUrl" placeholder="https://github.com/... hoặc D:\path" required autocomplete="off">
                 </div>
 
                 <div class="input-group">
                     <label for="geminiKey">Gemini API Key (Tùy chọn)</label>
-                    <input type="password" id="geminiKey" placeholder="AI-powered review key...">
-                    <span class="input-hint">Khuyên dùng để chấm chất lượng logic và cấu trúc</span>
+                    <input type="password" id="geminiKey" placeholder="Nhập API key nếu muốn chấm bằng AI...">
                 </div>
 
                 <div class="input-group">
-                    <label for="customCriteria">Tiêu chí chấm (Markdown)</label>
-                    <textarea id="customCriteria" rows="8" placeholder="Đang tải tiêu chí mặc định..."></textarea>
-                    <span class="input-hint">Có thể điều chỉnh Rubric chấm điểm ở đây</span>
+                    <label for="customCriteria">Tiêu chí chấm (Rubric)</label>
+                    <textarea id="customCriteria" rows="7" placeholder="Nhập tiêu chí chấm điểm..."></textarea>
+                    <span class="input-hint" id="criteriaHint">Vui lòng nhập tiêu chí chấm điểm trước khi thực hiện.</span>
                 </div>
 
-                <button type="submit" id="submitBtn">
-                    <span class="btn-text">Chấm điểm dự án</span>
+                <button type="submit" id="submitBtn" class="stationery-btn save-btn">
+                    <span class="btn-text">Chấm bài ngay</span>
                     <div class="spinner hidden"></div>
                 </button>
             </form>
 
             <div class="sidebar-footer">
-                <p>Môn học: Lập trình di động (PRM)</p>
-                <p>Phiên bản 1.0.0</p>
+                <p>V. Alpha • Spring 26</p>
+                <p>Lập trình di động (PRM)</p>
             </div>
         </aside>
 
-        <!-- Main Content Area -->
+        <!-- Right Side: Ruled paper contents -->
         <main class="main-content">
-            <!-- Initial state / Welcome screen -->
+            <!-- Welcome / Home View -->
             <div id="welcomeView" class="view-panel active">
-                <div class="welcome-card">
-                    <h2>Hệ Thống Chấm Điểm Flutter Tự Động</h2>
-                    <p>Hãy nhập đường dẫn dự án bên trái để bắt đầu phân tích code, cấu trúc thư mục, conventions và đánh giá các tiêu chuẩn chất lượng.</p>
+                <div class="welcome-card notebook-card">
+                    <div class="card-header-badge">✎ A SCHOOL-NOTEBOOK SYSTEM</div>
+                    <h2 class="handwritten-title">Flutter.grader</h2>
+                    <p class="handwritten-sub">Ruled cream paper, ink-navy writing, and a single red margin to keep the page honest.</p>
                     
-                    <div class="features-grid">
-                        <div class="feature-card">
-                            <span class="feat-icon">📂</span>
-                            <h3>Cấu trúc & File</h3>
-                            <p>Phân tích tổ chức thư mục lib, phân lớp UI, logic và models.</p>
+                    <div class="features-shelf">
+                        <div class="shelf-item">
+                            <span class="shelf-icon">📄</span>
+                            <h4>Cấu trúc lib/</h4>
+                            <p>Đánh giá sự phân chia clean architecture hoặc features-first.</p>
                         </div>
-                        <div class="feature-card">
-                            <span class="feat-icon">⚠️</span>
-                            <h3>Anti-Patterns</h3>
-                            <p>Phát hiện gọi API trong build, tràn giao diện, lạm dụng Map thô.</p>
+                        <div class="shelf-item">
+                            <span class="shelf-icon">✍</span>
+                            <h4>Naming Convention</h4>
+                            <p>Quét các quy tắc PascalCase class, camelCase và snake_case file.</p>
                         </div>
-                        <div class="feature-card">
-                            <span class="feat-icon">🤖</span>
-                            <h3>Đánh giá bằng AI</h3>
-                            <p>Gemini review sâu sắc về tính mở rộng, xử lý lỗi và clean code.</p>
+                        <div class="shelf-item">
+                            <span class="shelf-icon">💡</span>
+                            <h4>Anti-Patterns</h4>
+                            <p>Cảnh báo việc gọi API trực tiếp trong build hoặc lạm dụng Map.</p>
                         </div>
                     </div>
                 </div>
@@ -80,19 +101,17 @@
 
             <!-- Loading View -->
             <div id="loadingView" class="view-panel hidden">
-                <div class="loading-card">
-                    <div class="pulse-loader"></div>
-                    <h2>Đang tiến hành chấm điểm...</h2>
-                    <p>Hệ thống đang tải repository, chạy phân tích tĩnh và chấm điểm qua mô hình AI.</p>
+                <div class="loading-notebook">
+                    <div class="pencil-loader">✏️</div>
+                    <h2 class="handwritten-title">Đang chấm bài...</h2>
+                    <p>Hệ thống đang quét source code và tính toán điểm số.</p>
+                    
                     <div class="log-terminal">
                         <div class="terminal-header">
-                            <span class="term-dot red"></span>
-                            <span class="term-dot yellow"></span>
-                            <span class="term-dot green"></span>
-                            <span class="term-title">Console logs</span>
+                            <span class="term-title">Báo cáo tiến trình</span>
                         </div>
                         <div id="logTerminalContent" class="terminal-body">
-                            <p class="log-line info">> Khởi chạy tiến trình phân tích...</p>
+                            <p class="log-line info">> Khởi chạy bộ kiểm tra...</p>
                         </div>
                     </div>
                 </div>
@@ -102,59 +121,49 @@
             <div id="resultsView" class="view-panel hidden">
                 <div class="results-header">
                     <div>
-                        <h2 id="resultRepoTitle">Tên Repository</h2>
-                        <p id="resultRepoType" class="repo-badge">GitHub Project</p>
+                        <h2 id="resultRepoTitle" class="repo-title-handwritten">Repository</h2>
+                        <span id="resultRepoType" class="tag-badge">GitHub Project</span>
                     </div>
                     <div class="actions-row">
-                        <button id="exportMdBtn" class="btn btn-secondary">Xuất Markdown</button>
-                        <button id="printBtn" class="btn btn-primary">In / Lưu PDF</button>
+                        <button id="exportMdBtn" class="stationery-btn reset-btn">Xuất Markdown</button>
+                        <button id="printBtn" class="stationery-btn hint-btn">In / Lưu PDF</button>
                     </div>
                 </div>
 
                 <div class="summary-dashboard">
-                    <!-- Overall Score Card -->
-                    <div class="score-card">
-                        <div class="gauge-container">
-                            <svg viewBox="0 0 100 100" class="gauge">
-                                <defs>
-                                    <linearGradient id="scoreGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                                        <stop offset="0%" stop-color="#6366f1" />
-                                        <stop offset="100%" stop-color="#a855f7" />
-                                    </linearGradient>
-                                </defs>
-                                <circle cx="50" cy="50" r="45" class="gauge-bg"></circle>
-                                <circle cx="50" cy="50" r="45" class="gauge-fill" id="gaugeScoreFill"></circle>
-                            </svg>
-                            <div class="score-display">
-                                <span id="scoreVal">0.0</span>
-                                <span class="score-max">/10</span>
-                            </div>
+                    <!-- Grade Stamp (Red A+ style) -->
+                    <div class="grade-stamp-card">
+                        <div class="stamp-circle">
+                            <span id="scoreVal">A+</span>
                         </div>
-                        <h3>Điểm Tổng Hợp</h3>
+                        <span class="stamp-label">DIỂM THI</span>
                     </div>
 
-                    <!-- AI Summary Card -->
-                    <div class="ai-summary-card">
-                        <h3>Nhận xét chung của Giảng viên (AI)</h3>
-                        <p id="aiSummaryText">Nhận xét chi tiết sẽ hiển thị ở đây.</p>
+                    <!-- Yellow Sticky Note Summary -->
+                    <div class="sticky-note">
+                        <div class="sticky-note-tape"></div>
+                        <h3 class="sticky-note-title">Hey –</h3>
+                        <p id="aiSummaryText" class="sticky-note-text">
+                            Nhận xét tổng hợp từ giảng viên/hệ thống chấm điểm sẽ được ghi chú tại đây.
+                        </p>
                     </div>
                 </div>
 
-                <!-- Grid layout for breakdown & warnings -->
+                <!-- 2 Columns Grid: Criteria & Warnings -->
                 <div class="details-grid">
-                    <!-- Criteria breakdown -->
-                    <div class="section-card criteria-section">
-                        <h3>Chi tiết 15 tiêu chí đánh giá</h3>
+                    <!-- Criteria -->
+                    <div class="notebook-card criteria-shelf">
+                        <h3 class="shelf-title">📋 BẢNG ĐIỂM CHI TIẾT</h3>
                         <div id="criteriaList" class="criteria-list">
-                            <!-- Populated dynamically -->
+                            <!-- JS populated -->
                         </div>
                     </div>
 
-                    <!-- Warnings & Recommendations -->
-                    <div class="section-card warnings-section">
-                        <h3>Các cảnh báo & Khuyến nghị sửa code</h3>
+                    <!-- Warnings -->
+                    <div class="notebook-card warnings-shelf">
+                        <h3 class="shelf-title">⚠️ LỖI & CẢNH BÁO</h3>
                         <div id="warningsList" class="warnings-list">
-                            <!-- Populated dynamically -->
+                            <!-- JS populated -->
                         </div>
                     </div>
                 </div>
