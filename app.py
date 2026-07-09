@@ -10,8 +10,12 @@ from pydantic import BaseModel
 
 from analyzer import analyze_flutter_project
 from document_parser import DocumentParseError, decode_text_content, extract_docx_text
+from env_loader import load_dotenv
 from grader import grade_project
 from providers import get_provider_config
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+load_dotenv(os.path.join(BASE_DIR, ".env"))
 
 app = FastAPI(title="Flutter Code Auto-Grader")
 
@@ -26,7 +30,6 @@ class CriteriaExtractRequest(BaseModel):
     content_base64: str
 
 # Ensure temp directory exists inside workspace
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMP_DIR = os.path.join(BASE_DIR, "temp_repos")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
