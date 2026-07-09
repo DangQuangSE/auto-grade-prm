@@ -101,7 +101,7 @@ class OpenRouterProvider:
                     {"role": "user", "content": prompt},
                 ],
                 "temperature": 0.2,
-                "response_format": {"type": "json_object"},
+                "response_format": self._response_format(),
             }
             response_bytes = self._post(body)
             parsed = self.parse_response(response_bytes)
@@ -164,3 +164,52 @@ class OpenRouterProvider:
         if self.api_key:
             return message.replace(self.api_key, "[redacted]")
         return message
+
+    @staticmethod
+    def _response_format() -> Dict[str, Any]:
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "flutter_grading_report",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": [
+                        "overall_score",
+                        "criteria_breakdown",
+                        "summary",
+                        "warnings",
+                    ],
+                    "properties": {
+                        "overall_score": {
+                            "type": "number",
+                            "minimum": 0,
+                            "maximum": 10,
+                        },
+                        "criteria_breakdown": {
+                            "type": "object",
+                            "minProperties": 1,
+                            "additionalProperties": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "required": ["score", "feedback"],
+                                "properties": {
+                                    "score": {
+                                        "type": "number",
+                                        "minimum": 0,
+                                        "maximum": 10,
+                                    },
+                                    "feedback": {"type": "string"},
+                                },
+                            },
+                        },
+                        "summary": {"type": "string"},
+                        "warnings": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                        },
+                    },
+                },
+            },
+        }

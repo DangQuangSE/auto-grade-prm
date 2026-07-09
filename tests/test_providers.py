@@ -79,6 +79,13 @@ class TestOpenRouterProvider(unittest.TestCase):
         self.assertIn("network down", result.error)
         self.assertNotIn("sk-secret-value", result.error)
 
+    def test_openrouter_uses_json_schema_response_format(self):
+        response_format = OpenRouterProvider._response_format()
+
+        self.assertEqual(response_format["type"], "json_schema")
+        self.assertIn("json_schema", response_format)
+        self.assertNotEqual(response_format["type"], "json_object")
+
 
 if __name__ == "__main__":
     unittest.main()
