@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import urllib.error
@@ -22,6 +23,11 @@ class ProviderResult:
     model: str
     data: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
+
+
+def _derive_seed(prompt: str) -> int:
+    digest = hashlib.sha256(prompt.encode("utf-8")).hexdigest()
+    return int(digest[:8], 16)
 
 
 def _get_model() -> str:
@@ -105,7 +111,8 @@ class OpenRouterProvider:
                     },
                     {"role": "user", "content": prompt},
                 ],
-                "temperature": 0.2,
+                "temperature": 0,
+                "seed": _derive_seed(prompt),
                 "response_format": self._response_format(),
             }
             response_bytes = self._post(body)
@@ -213,7 +220,13 @@ class OpenRouterProvider:
                         "summary": {"type": "string"},
                         "warnings": {
                             "type": "array",
-                            "items": {"type": "string"},
+                            "items": {
+                                "type": "string",
+                                "description": (
+                                    "Must start with the exact file name where the issue was found, "
+                                    "e.g. 'app_router.dart: file has 910 lines, hard to maintain.'"
+                                ),
+                            },
                         },
                     },
                 },

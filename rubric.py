@@ -109,6 +109,20 @@ def _parse_weight_triplets(lines: list[str]) -> list[Dict[str, Any]]:
     return items
 
 
+def _parse_pipe_table_rows(lines: list[str]) -> list[Dict[str, Any]]:
+    items = []
+    for line in lines:
+        if "|" not in line or set(line.replace("|", "").strip()) <= {"-"}:
+            continue
+        parts = [part.strip() for part in line.split("|") if part.strip()]
+        if len(parts) < 2 or not re.fullmatch(r"\d+(?:\.\d+)?\s*%", parts[-1]):
+            continue
+        name = _clean_criterion_name(parts[0])
+        if name and _looks_like_criterion_name(name):
+            items.append({"name": name, "weight": _extract_weight(parts[-1])})
+    return items
+
+
 def parse_rubric(criteria_text: Optional[str]) -> Optional[Dict[str, Dict[str, Any]]]:
     if not criteria_text or not criteria_text.strip():
         return None
@@ -119,6 +133,10 @@ def parse_rubric(criteria_text: Optional[str]) -> Optional[Dict[str, Dict[str, A
     weighted_triplets = _parse_weight_triplets(lines)
     if weighted_triplets:
         raw_items = weighted_triplets
+    else:
+        pipe_table_rows = _parse_pipe_table_rows(lines)
+        if len(pipe_table_rows) >= 2:
+            raw_items = pipe_table_rows
 
     for raw_line in lines if not raw_items else []:
         line = raw_line.strip()

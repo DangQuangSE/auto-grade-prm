@@ -10,8 +10,8 @@ def get_key_files_content(project_path: str) -> Dict[str, str]:
         return file_contents
 
     for root, dirs, files in os.walk(lib_path):
-        dirs[:] = [d for d in dirs if d not in {".dart_tool", "build"}]
-        for file_name in files:
+        dirs[:] = sorted(d for d in dirs if d not in {".dart_tool", "build"})
+        for file_name in sorted(files):
             if not file_name.endswith(".dart") or len(file_contents) >= 12:
                 continue
             file_path = os.path.join(root, file_name)
@@ -81,7 +81,7 @@ Return exactly one JSON object with this schema:
   "overall_score": <number from 0.0 to 10.0>,
   "criteria_breakdown": {json.dumps(schema_examples, ensure_ascii=False, indent=4)},
   "summary": "<concise Vietnamese summary of strengths and weaknesses>",
-  "warnings": ["<specific issue or risk>"]
+  "warnings": ["<file_name.dart>: <specific issue, its concrete impact, and the line count or code pattern that triggered it>"]
 }}
 
 Rules:
@@ -90,6 +90,7 @@ Rules:
 - Each criterion score must be from 0.0 to 10.0.
 - "feedback" must be specific and evidence-based: name the exact file (from the source excerpts or static analysis) and describe the actual code pattern found there. Avoid generic statements like "code could be better" without pointing to where.
 - "suggestion" must give a concrete, actionable fix for that specific file/pattern: describe the refactor step and include a short corrected Dart code snippet (wrapped in a ```dart fence) showing the improved version.
-- Write "feedback" and "suggestion" in Vietnamese.
+- Every entry in "warnings" must start with the exact file name (e.g. "app_router.dart: ...") the issue was found in, followed by a concrete description of the problem (what pattern, how many lines/occurrences, why it matters). Never write a vague warning with no file name attached (e.g. do not write "Chưa có evidence về test tự động" alone — instead name which file(s) lack test coverage or state that no test files exist in the excerpts at all).
+- Write "feedback", "suggestion", and "warnings" in Vietnamese.
 - If evidence for a criterion is missing from the excerpts, say explicitly what needs manual review instead of inventing details.
 """.strip()
