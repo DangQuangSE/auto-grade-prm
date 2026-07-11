@@ -1,0 +1,19 @@
+{
+  "mode": "gate",
+  "target": "phase-01-i18n-extraction",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-11T00:00:00Z",
+  "reviewed_files": [
+    "static/i18n.js",
+    "static/main.js",
+    "templates/index.html"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

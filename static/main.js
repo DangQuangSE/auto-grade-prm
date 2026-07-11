@@ -18,6 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const criteriaHint = document.getElementById("criteriaHint");
     const providerStatus = document.getElementById("providerStatus");
     const providerStatusText = document.getElementById("providerStatusText");
+    const langSwitch = document.getElementById("langSwitch");
 
     let currentReport = null;
     let providerInfo = null;
@@ -31,15 +32,48 @@ document.addEventListener("DOMContentLoaded", () => {
             .replace(/'/g, "&#039;");
     }
 
+    function applyStaticTranslations() {
+        document.documentElement.lang = currentLang;
+        document.querySelectorAll("[data-i18n]").forEach(el => {
+            el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+            el.placeholder = t(el.dataset.i18nPlaceholder);
+        });
+        document.querySelectorAll("[data-i18n-title]").forEach(el => {
+            el.title = t(el.dataset.i18nTitle);
+        });
+        langSwitch.querySelectorAll(".lang-btn").forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.lang === currentLang);
+        });
+    }
+
+    function setLang(lang) {
+        currentLang = lang;
+        localStorage.setItem("lang", lang);
+        applyStaticTranslations();
+        renderProviderStatus();
+        validateCriteria();
+        if (currentReport) {
+            renderReport(currentReport);
+        }
+    }
+
+    langSwitch.addEventListener("click", (e) => {
+        const btn = e.target.closest(".lang-btn");
+        if (!btn) return;
+        setLang(btn.dataset.lang);
+    });
+
     function validateCriteria() {
         const hasContent = customCriteria.value.trim() !== "";
         submitBtn.disabled = !hasContent;
         if (!hasContent) {
-            criteriaHint.textContent = "Please enter or upload criteria before grading.";
+            criteriaHint.textContent = t("hint_criteria_missing");
             criteriaHint.style.color = "var(--margin-red)";
             criteriaHint.style.fontWeight = "bold";
         } else {
-            criteriaHint.textContent = "Criteria is ready. You can edit it before grading.";
+            criteriaHint.textContent = t("hint_criteria_ready");
             criteriaHint.style.color = "var(--graphite)";
             criteriaHint.style.fontWeight = "normal";
         }
@@ -96,19 +130,28 @@ document.addEventListener("DOMContentLoaded", () => {
         return data.criteria || "";
     }
 
+    function renderProviderStatus() {
+        if (!providerInfo) {
+            providerStatus.classList.add("missing");
+            providerStatusText.textContent = t("provider_unavailable");
+            return;
+        }
+        providerStatus.classList.toggle("configured", providerInfo.api_key_configured);
+        providerStatus.classList.toggle("missing", !providerInfo.api_key_configured);
+        const suffix = providerInfo.api_key_configured
+            ? t("provider_configured_suffix")
+            : t("provider_missing_suffix");
+        providerStatusText.textContent = `${providerInfo.provider}: ${providerInfo.model} ${suffix}`;
+    }
+
     async function loadProviderInfo() {
         try {
             const response = await fetch("/api/provider");
             providerInfo = await response.json();
-            providerStatus.classList.toggle("configured", providerInfo.api_key_configured);
-            providerStatus.classList.toggle("missing", !providerInfo.api_key_configured);
-            providerStatusText.textContent = `${providerInfo.provider}: ${providerInfo.model} ${
-                providerInfo.api_key_configured ? "(configured)" : "(missing API key)"
-            }`;
         } catch (error) {
-            providerStatus.classList.add("missing");
-            providerStatusText.textContent = "AI provider: unavailable";
+            providerInfo = null;
         }
+        renderProviderStatus();
     }
 
     customCriteria.addEventListener("input", validateCriteria);
@@ -119,16 +162,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const lowerName = file.name.toLowerCase();
         const validName = lowerName.endsWith(".docx") || lowerName.endsWith(".md") || lowerName.endsWith(".txt");
         if (!validName) {
-            alert("Only .docx, .md, and .txt criteria files are supported.");
+            alert(t("alert_invalid_file"));
             criteriaFile.value = "";
             return;
         }
         try {
-            criteriaHint.textContent = "Reading criteria file...";
+            criteriaHint.textContent = t("hint_reading_file");
             customCriteria.value = await extractCriteriaFile(file);
             validateCriteria();
         } catch (error) {
-            alert(`Could not read criteria file: ${error.message}`);
+            alert(t("alert_read_file_error", { message: error.message }));
             criteriaFile.value = "";
             validateCriteria();
         }
@@ -145,6 +188,7 @@ document.addEventListener("DOMContentLoaded", () => {
             validateCriteria();
         });
 
+    applyStaticTranslations();
     loadProviderInfo();
 
     gradeForm.addEventListener("submit", async (e) => {
@@ -155,14 +199,17 @@ document.addEventListener("DOMContentLoaded", () => {
 
         switchView("loading");
         clearLogs();
-        addLog("Preparing grading request...", "info");
-        addLog(githubUrl.startsWith("http") || githubUrl.startsWith("git@")
-            ? `Cloning repository: ${githubUrl}`
-            : `Using local directory: ${githubUrl}`, "info");
+        addLog(t("log_preparing"), "info");
+        addLog(
+            githubUrl.startsWith("http") || githubUrl.startsWith("git@")
+                ? t("log_cloning", { url: githubUrl })
+                : t("log_local", { url: githubUrl }),
+            "info"
+        );
 
         try {
-            addLog("Running static Flutter analysis...", "info");
-            addLog("Sending analyzer evidence and criteria to the configured AI provider...", "info");
+            addLog(t("log_analysis"), "info");
+            addLog(t("log_sending"), "info");
 
             const response = await fetch("/api/grade", {
                 method: "POST",
@@ -182,27 +229,28 @@ document.addEventListener("DOMContentLoaded", () => {
             currentReport = report;
 
             if (report.grading_mode === "heuristic" && report.provider_error) {
-                addLog(`AI provider failed; heuristic fallback used: ${report.provider_error}`, "error");
+                addLog(t("log_fallback", { error: report.provider_error }), "error");
             } else {
-                addLog("AI grading completed.", "success");
+                addLog(t("log_ai_done"), "success");
             }
-            addLog("Rendering report...", "success");
+            addLog(t("log_rendering"), "success");
 
             setTimeout(() => {
                 renderReport(report);
                 switchView("results");
             }, 400);
         } catch (error) {
-            addLog(`ERROR: ${error.message}`, "error");
-            alert(`Error: ${error.message}`);
+            addLog(t("log_error_prefix", { message: error.message }), "error");
+            alert(t("alert_grade_error", { message: error.message }));
             switchView("welcome");
         }
     });
 
     function renderReport(report) {
         resultRepoTitle.innerText = report.repository;
-        const mode = report.grading_mode === "ai" ? "AI" : "Heuristic fallback";
-        resultRepoType.innerText = `${report.is_local ? "Local Directory" : "Git Repository"} / ${mode}`;
+        const mode = report.grading_mode === "ai" ? t("mode_ai") : t("mode_heuristic");
+        const repoType = report.is_local ? t("repo_local") : t("repo_git");
+        resultRepoType.innerText = `${repoType} / ${mode}`;
 
         const score = Number(report.overall_score || 0);
         scoreVal.innerText = score.toFixed(1);
@@ -216,10 +264,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         const providerLine = report.provider
-            ? `<br><small>Provider: ${escapeHtml(report.provider)} / ${escapeHtml(report.model || "not configured")} / ${escapeHtml(report.grading_mode || "unknown")}</small>`
+            ? `<br><small>${escapeHtml(t("provider_line", {
+                provider: report.provider,
+                model: report.model || t("model_not_configured"),
+                mode: report.grading_mode || t("mode_unknown"),
+            }))}</small>`
             : "";
         const errorLine = report.provider_error
-            ? `<br><small>Provider error: ${escapeHtml(report.provider_error)}</small>`
+            ? `<br><small>${escapeHtml(t("provider_error_line", { error: report.provider_error }))}</small>`
             : "";
         aiSummaryText.innerHTML = `${escapeHtml(report.summary || "").replace(/\n/g, "<br>")}${providerLine}${errorLine}`;
 
@@ -232,6 +284,9 @@ document.addEventListener("DOMContentLoaded", () => {
             if (itemScore >= 8.0) scoreClass = "high";
             else if (itemScore >= 5.0) scoreClass = "mid";
 
+            const suggestionHtml = data.suggestion
+                ? `<div class="criterion-suggestion"><span class="suggestion-label">${escapeHtml(t("label_suggestion"))}</span><p>${escapeHtml(data.suggestion).replace(/\n/g, "<br>")}</p></div>`
+                : "";
             item.innerHTML = `
                 <div class="criterion-header">
                     <span class="criterion-title">${escapeHtml(name)}</span>
@@ -239,6 +294,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>
                 <div class="criterion-body hidden">
                     <p>${escapeHtml(data.feedback || "")}</p>
+                    ${suggestionHtml}
                 </div>
             `;
             item.querySelector(".criterion-header").addEventListener("click", () => {
@@ -258,7 +314,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     item.className = "warning-item error-type";
                     item.innerHTML = `
-                        <span class="warning-file">${escapeHtml(warn.file || "General")}</span>
+                        <span class="warning-file">${escapeHtml(warn.file || t("general_file"))}</span>
                         <p>${escapeHtml(warn.message || warn.error || "Issue detected.")}</p>
                     `;
                 }
@@ -267,7 +323,7 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             warningsList.innerHTML = `
                 <div class="warning-item" style="border-left-color: var(--success); background: rgba(16, 185, 129, 0.05);">
-                    <p>No serious warnings were detected by static analysis.</p>
+                    <p>${escapeHtml(t("no_warnings"))}</p>
                 </div>
             `;
         }
@@ -276,33 +332,39 @@ document.addEventListener("DOMContentLoaded", () => {
     exportMdBtn.addEventListener("click", () => {
         if (!currentReport) return;
 
-        let md = "# Flutter Project Grading Report\n";
-        md += `**Project**: ${currentReport.repository}\n`;
-        md += `**Score**: ${Number(currentReport.overall_score || 0).toFixed(1)}/10\n`;
-        md += `**Mode**: ${currentReport.grading_mode || "unknown"}\n`;
-        md += `**Provider**: ${currentReport.provider || "unknown"} / ${currentReport.model || "not configured"}\n\n`;
+        const mode = currentReport.grading_mode || t("mode_unknown");
+        const model = currentReport.model || t("model_not_configured");
+
+        let md = `${t("md_title")}\n`;
+        md += `${t("md_project")} ${currentReport.repository}\n`;
+        md += `${t("md_score")} ${Number(currentReport.overall_score || 0).toFixed(1)}/10\n`;
+        md += `${t("md_mode")} ${mode}\n`;
+        md += `${t("md_provider")} ${currentReport.provider || t("mode_unknown")} / ${model}\n\n`;
         if (currentReport.provider_error) {
-            md += `**Provider error**: ${currentReport.provider_error}\n\n`;
+            md += `${t("md_provider_error")} ${currentReport.provider_error}\n\n`;
         }
-        md += `## Summary\n${currentReport.summary || ""}\n\n`;
-        md += "## Criteria Breakdown\n";
+        md += `${t("md_summary_heading")}\n${currentReport.summary || ""}\n\n`;
+        md += `${t("md_breakdown_heading")}\n`;
 
         Object.entries(currentReport.criteria_breakdown || {}).forEach(([name, data]) => {
             md += `### ${name}: **${Number(data.score || 0).toFixed(1)}/10**\n`;
             md += `${data.feedback || ""}\n\n`;
+            if (data.suggestion) {
+                md += `${t("md_suggestion_label")}\n${data.suggestion}\n\n`;
+            }
         });
 
-        md += "## Warnings\n";
+        md += `${t("md_warnings_heading")}\n`;
         if (currentReport.warnings && currentReport.warnings.length > 0) {
             currentReport.warnings.forEach(w => {
                 if (typeof w === "string") {
                     md += `- [ ] ${w}\n`;
                 } else {
-                    md += `- [ ] **${w.file || "General"}**: ${w.message || w.error}\n`;
+                    md += `- [ ] **${w.file || t("general_file")}**: ${w.message || w.error}\n`;
                 }
             });
         } else {
-            md += "No warnings.\n";
+            md += `${t("md_no_warnings")}\n`;
         }
 
         const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });

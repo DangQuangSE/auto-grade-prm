@@ -95,6 +95,9 @@ No duplicated widgets or constants
         self.assertEqual(report["provider_error"], "network down")
         self.assertNotIn("Only custom criterion", report["criteria_breakdown"])
         self.assertTrue(DEFAULT_CRITERIA_TEXT)
+        for detail in report["criteria_breakdown"].values():
+            self.assertIn("suggestion", detail)
+            self.assertTrue(detail["suggestion"])
 
 
 if __name__ == "__main__":

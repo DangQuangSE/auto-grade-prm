@@ -28,10 +28,15 @@
             </div>
             <p class="subtitle-tag">A FLUTTER GRADEOUT TOOL</p>
 
+            <div class="lang-switch" id="langSwitch">
+                <button type="button" class="lang-btn" data-lang="vi">VI</button>
+                <button type="button" class="lang-btn" data-lang="en">EN</button>
+            </div>
+
             <form id="gradeForm" class="control-form">
                 <div class="input-group">
-                    <label for="githubUrl">Flutter project (Git / Local)</label>
-                    <input type="text" id="githubUrl" placeholder="https://github.com/... or D:\path" required autocomplete="off">
+                    <label for="githubUrl" data-i18n="label_project">Flutter project (Git / Local)</label>
+                    <input type="text" id="githubUrl" data-i18n-placeholder="placeholder_project" placeholder="https://github.com/... or D:\path" required autocomplete="off">
                 </div>
 
                 <div class="provider-status" id="providerStatus">
@@ -40,46 +45,46 @@
                 </div>
 
                 <div class="input-group">
-                    <label for="customCriteria">Criteria template</label>
-                    <input type="file" id="criteriaFile" accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain">
-                    <textarea id="customCriteria" rows="8" placeholder="Paste grading criteria here..."></textarea>
-                    <span class="input-hint" id="criteriaHint">Please enter or upload criteria before grading.</span>
+                    <label for="customCriteria" data-i18n="label_criteria">Criteria template</label>
+                    <input type="file" id="criteriaFile" title="Upload criteria file" data-i18n-title="label_criteria_file" accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain">
+                    <textarea id="customCriteria" rows="8" data-i18n-placeholder="placeholder_criteria" placeholder="Paste grading criteria here..."></textarea>
+                    <span class="input-hint" id="criteriaHint" data-i18n="hint_criteria_missing">Please enter or upload criteria before grading.</span>
                 </div>
 
                 <button type="submit" id="submitBtn" class="stationery-btn save-btn">
-                    <span class="btn-text">Grade project</span>
+                    <span class="btn-text" data-i18n="btn_grade">Grade project</span>
                     <div class="spinner hidden"></div>
                 </button>
             </form>
 
             <div class="sidebar-footer">
                 <p>V. Alpha</p>
-                <p>PRM Flutter grading</p>
+                <p data-i18n="footer_tagline">PRM Flutter grading</p>
             </div>
         </aside>
 
         <main class="main-content">
             <div id="welcomeView" class="view-panel active">
                 <div class="welcome-card notebook-card">
-                    <div class="card-header-badge">AI RUBRIC GRADING</div>
+                    <div class="card-header-badge" data-i18n="badge_ai_rubric">AI RUBRIC GRADING</div>
                     <h2 class="handwritten-title">Flutter.grader</h2>
-                    <p class="handwritten-sub">Static Flutter analysis plus OpenRouter-based grading against your criteria template.</p>
+                    <p class="handwritten-sub" data-i18n="welcome_sub">Static Flutter analysis plus OpenRouter-based grading against your criteria template.</p>
 
                     <div class="features-shelf">
                         <div class="shelf-item">
                             <span class="shelf-icon">LIB</span>
-                            <h4>Project structure</h4>
-                            <p>Reviews lib organization, feature folders, models, services, and widgets.</p>
+                            <h4 data-i18n="shelf1_title">Project structure</h4>
+                            <p data-i18n="shelf1_desc">Reviews lib organization, feature folders, models, services, and widgets.</p>
                         </div>
                         <div class="shelf-item">
                             <span class="shelf-icon">AI</span>
-                            <h4>Dynamic rubric</h4>
-                            <p>Paste or upload any assignment criteria template for the grading run.</p>
+                            <h4 data-i18n="shelf2_title">Dynamic rubric</h4>
+                            <p data-i18n="shelf2_desc">Paste or upload any assignment criteria template for the grading run.</p>
                         </div>
                         <div class="shelf-item">
                             <span class="shelf-icon">QA</span>
-                            <h4>Warnings</h4>
-                            <p>Highlights naming issues, large files, build-time calls, and provider fallback.</p>
+                            <h4 data-i18n="shelf3_title">Warnings</h4>
+                            <p data-i18n="shelf3_desc">Highlights naming issues, large files, build-time calls, and provider fallback.</p>
                         </div>
                     </div>
                 </div>
@@ -88,15 +93,15 @@
             <div id="loadingView" class="view-panel hidden">
                 <div class="loading-notebook">
                     <div class="pencil-loader">...</div>
-                    <h2 class="handwritten-title">Grading project...</h2>
-                    <p>Scanning Flutter source and preparing the grading report.</p>
+                    <h2 class="handwritten-title" data-i18n="loading_title">Grading project...</h2>
+                    <p data-i18n="loading_sub">Scanning Flutter source and preparing the grading report.</p>
 
                     <div class="log-terminal">
                         <div class="terminal-header">
-                            <span class="term-title">Progress report</span>
+                            <span class="term-title" data-i18n="terminal_title">Progress report</span>
                         </div>
                         <div id="logTerminalContent" class="terminal-body">
-                            <p class="log-line info">> Starting checks...</p>
+                            <p class="log-line info" data-i18n="log_starting_full">> Starting checks...</p>
                         </div>
                     </div>
                 </div>
@@ -109,8 +114,8 @@
                         <span id="resultRepoType" class="tag-badge">GitHub Project</span>
                     </div>
                     <div class="actions-row">
-                        <button id="exportMdBtn" class="stationery-btn reset-btn">Export Markdown</button>
-                        <button id="printBtn" class="stationery-btn hint-btn">Print / Save PDF</button>
+                        <button type="button" id="exportMdBtn" class="stationery-btn reset-btn" data-i18n="btn_export_md">Export Markdown</button>
+                        <button type="button" id="printBtn" class="stationery-btn hint-btn" data-i18n="btn_print">Print / Save PDF</button>
                     </div>
                 </div>
 
@@ -119,24 +124,24 @@
                         <div class="stamp-circle">
                             <span id="scoreVal">--</span>
                         </div>
-                        <span class="stamp-label">SCORE</span>
+                        <span class="stamp-label" data-i18n="label_score">SCORE</span>
                     </div>
 
                     <div class="sticky-note">
                         <div class="sticky-note-tape"></div>
-                        <h3 class="sticky-note-title">Summary</h3>
-                        <p id="aiSummaryText" class="sticky-note-text">The grading summary will appear here.</p>
+                        <h3 class="sticky-note-title" data-i18n="label_summary">Summary</h3>
+                        <p id="aiSummaryText" class="sticky-note-text" data-i18n="summary_placeholder">The grading summary will appear here.</p>
                     </div>
                 </div>
 
                 <div class="details-grid">
                     <div class="notebook-card criteria-shelf">
-                        <h3 class="shelf-title">Criteria breakdown</h3>
+                        <h3 class="shelf-title" data-i18n="label_criteria_breakdown">Criteria breakdown</h3>
                         <div id="criteriaList" class="criteria-list"></div>
                     </div>
 
                     <div class="notebook-card warnings-shelf">
-                        <h3 class="shelf-title">Warnings</h3>
+                        <h3 class="shelf-title" data-i18n="label_warnings">Warnings</h3>
                         <div id="warningsList" class="warnings-list"></div>
                     </div>
                 </div>
@@ -144,6 +149,7 @@
         </main>
     </div>
 
+    <script src="/static/i18n.js"></script>
     <script src="/static/main.js"></script>
 </body>
 </html>

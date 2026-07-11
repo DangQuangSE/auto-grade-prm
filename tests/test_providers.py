@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from providers import OpenRouterProvider, ProviderError, get_provider_config
+from providers import OpenRouterProvider, ProviderError, get_provider_config, validate_grading_report
 
 
 class TestOpenRouterProvider(unittest.TestCase):
@@ -85,6 +85,40 @@ class TestOpenRouterProvider(unittest.TestCase):
         self.assertEqual(response_format["type"], "json_schema")
         self.assertIn("json_schema", response_format)
         self.assertNotEqual(response_format["type"], "json_object")
+
+    def test_response_format_requires_suggestion_per_criterion(self):
+        response_format = OpenRouterProvider._response_format()
+        criterion_schema = response_format["json_schema"]["schema"]["properties"]["criteria_breakdown"]["additionalProperties"]
+
+        self.assertIn("suggestion", criterion_schema["required"])
+        self.assertIn("suggestion", criterion_schema["properties"])
+
+    def test_validate_grading_report_defaults_missing_suggestion(self):
+        report = {
+            "overall_score": 7.0,
+            "criteria_breakdown": {
+                "Structure": {"score": 7.0, "feedback": "Reasonable layout."}
+            },
+            "summary": "OK project.",
+            "warnings": [],
+        }
+
+        validated = validate_grading_report(report)
+
+        self.assertEqual(validated["criteria_breakdown"]["Structure"]["suggestion"], "")
+
+    def test_validate_grading_report_rejects_non_string_suggestion(self):
+        report = {
+            "overall_score": 7.0,
+            "criteria_breakdown": {
+                "Structure": {"score": 7.0, "feedback": "Reasonable layout.", "suggestion": 123}
+            },
+            "summary": "OK project.",
+            "warnings": [],
+        }
+
+        with self.assertRaises(ProviderError):
+            validate_grading_report(report)
 
 
 if __name__ == "__main__":

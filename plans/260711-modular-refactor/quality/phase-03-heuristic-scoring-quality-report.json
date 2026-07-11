@@ -1,0 +1,19 @@
+{
+  "mode": "gate",
+  "target": "phase-03-heuristic-scoring",
+  "verdict": "APPROVED",
+  "reviewed_at": "2026-07-11T12:00:00Z",
+  "reviewed_files": [
+    "heuristics.py",
+    "grader.py",
+    "rubric.py"
+  ],
+  "summary": {
+    "blocker": 0,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "noted": 0
+  },
+  "findings": []
+}

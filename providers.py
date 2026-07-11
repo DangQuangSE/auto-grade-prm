@@ -58,6 +58,11 @@ def validate_grading_report(report: Dict[str, Any]) -> Dict[str, Any]:
             raise ProviderError("Provider response criterion score must be a number from 0.0 to 10.0.")
         if not isinstance(feedback, str):
             raise ProviderError("Provider response criterion feedback must be a string.")
+        suggestion = detail.get("suggestion")
+        if suggestion is None:
+            detail["suggestion"] = ""
+        elif not isinstance(suggestion, str):
+            raise ProviderError("Provider response criterion suggestion must be a string.")
 
     if not isinstance(report.get("summary"), str):
         raise ProviderError("Provider response summary must be a string.")
@@ -193,7 +198,7 @@ class OpenRouterProvider:
                             "additionalProperties": {
                                 "type": "object",
                                 "additionalProperties": False,
-                                "required": ["score", "feedback"],
+                                "required": ["score", "feedback", "suggestion"],
                                 "properties": {
                                     "score": {
                                         "type": "number",
@@ -201,6 +206,7 @@ class OpenRouterProvider:
                                         "maximum": 10,
                                     },
                                     "feedback": {"type": "string"},
+                                    "suggestion": {"type": "string"},
                                 },
                             },
                         },
