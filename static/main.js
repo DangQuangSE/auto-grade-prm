@@ -382,4 +382,41 @@ document.addEventListener("DOMContentLoaded", () => {
         });
         window.print();
     });
+
+    // Resizable Sidebar logic
+    const sidebar = document.querySelector(".sidebar");
+    const resizer = document.getElementById("sidebarResizer");
+
+    if (sidebar && resizer) {
+        // Load saved sidebar width
+        const savedWidth = localStorage.getItem("sidebarWidth");
+        if (savedWidth) {
+            sidebar.style.width = savedWidth + "px";
+        }
+
+        resizer.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            resizer.classList.add("active");
+            document.body.style.cursor = "col-resize";
+
+            function onMouseMove(e) {
+                let newWidth = e.clientX;
+                // Constraints check
+                if (newWidth >= 280 && newWidth <= 600) {
+                    sidebar.style.width = newWidth + "px";
+                    localStorage.setItem("sidebarWidth", newWidth);
+                }
+            }
+
+            function onMouseUp() {
+                resizer.classList.remove("active");
+                document.body.style.cursor = "";
+                document.removeEventListener("mousemove", onMouseMove);
+                document.removeEventListener("mouseup", onMouseUp);
+            }
+
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+        });
+    }
 });
