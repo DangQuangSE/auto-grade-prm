@@ -3,30 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marginalia - Flutter Code Grader</title>
+    <title>PRM AutoGrader - LMS Portal</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;700&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;1,9..144,400&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css?v=1.0.2">
 </head>
 <body>
-    <div class="binder-spiral">
-        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
-        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
-        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
-        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
-        <div class="hole"></div><div class="hole"></div><div class="hole"></div>
-    </div>
-
-    <div class="notebook-margin-line"></div>
-
     <div class="app-container">
+        <!-- Sidebar Navigation & Control Panel -->
         <aside class="sidebar">
             <div class="logo-area">
-                <span class="logo-m">M</span>
-                <h1>Marginalia</h1>
+                <div class="logo-icon">AG</div>
+                <div>
+                    <h1>PRM AutoGrader</h1>
+                    <p class="subtitle-tag" data-i18n="footer_tagline">PRM Flutter grading</p>
+                </div>
             </div>
-            <p class="subtitle-tag">A FLUTTER GRADEOUT TOOL</p>
 
             <div class="lang-switch" id="langSwitch">
                 <button type="button" class="lang-btn" data-lang="vi">VI</button>
@@ -46,43 +39,53 @@
 
                 <div class="input-group">
                     <label for="customCriteria" data-i18n="label_criteria">Criteria template</label>
-                    <input type="file" id="criteriaFile" title="Upload criteria file" data-i18n-title="label_criteria_file" accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain">
+                    <div class="file-upload-wrapper">
+                        <input type="file" id="criteriaFile" title="Upload criteria file" data-i18n-title="label_criteria_file" accept=".docx,.md,.txt,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/markdown,text/plain">
+                    </div>
                     <textarea id="customCriteria" rows="8" data-i18n-placeholder="placeholder_criteria" placeholder="Paste grading criteria here..."></textarea>
                     <span class="input-hint" id="criteriaHint" data-i18n="hint_criteria_missing">Please enter or upload criteria before grading.</span>
                 </div>
 
-                <button type="submit" id="submitBtn" class="stationery-btn save-btn">
+                <button type="submit" id="submitBtn" class="primary-btn">
                     <span class="btn-text" data-i18n="btn_grade">Grade project</span>
                     <div class="spinner hidden"></div>
                 </button>
             </form>
 
             <div class="sidebar-footer">
-                <p>V. Alpha</p>
-                <p data-i18n="footer_tagline">PRM Flutter grading</p>
+                <span>V1.0.0 (LMS Edition)</span>
             </div>
         </aside>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
 
+        <!-- Main Dashboard Workspace -->
         <main class="main-content">
+            <!-- 1. Welcome View (Standard Dashboard Landing) -->
             <div id="welcomeView" class="view-panel active">
-                <div class="welcome-card notebook-card">
+                <div class="welcome-card dashboard-card">
                     <div class="card-header-badge" data-i18n="badge_ai_rubric">AI RUBRIC GRADING</div>
-                    <h2 class="handwritten-title">Flutter.grader</h2>
-                    <p class="handwritten-sub" data-i18n="welcome_sub">Static Flutter analysis plus OpenRouter-based grading against your criteria template.</p>
+                    <h2 class="dashboard-title">Flutter Assignment Grader</h2>
+                    <p class="dashboard-sub" data-i18n="welcome_sub">Static Flutter analysis plus OpenRouter-based grading against your criteria template.</p>
 
-                    <div class="features-shelf">
-                        <div class="shelf-item">
-                            <span class="shelf-icon">LIB</span>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            </div>
                             <h4 data-i18n="shelf1_title">Project structure</h4>
                             <p data-i18n="shelf1_desc">Reviews lib organization, feature folders, models, services, and widgets.</p>
                         </div>
-                        <div class="shelf-item">
-                            <span class="shelf-icon">AI</span>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                            </div>
                             <h4 data-i18n="shelf2_title">Dynamic rubric</h4>
                             <p data-i18n="shelf2_desc">Paste or upload any assignment criteria template for the grading run.</p>
                         </div>
-                        <div class="shelf-item">
-                            <span class="shelf-icon">QA</span>
+                        <div class="feature-card">
+                            <div class="feature-icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                            </div>
                             <h4 data-i18n="shelf3_title">Warnings</h4>
                             <p data-i18n="shelf3_desc">Highlights naming issues, large files, build-time calls, and provider fallback.</p>
                         </div>
@@ -90,14 +93,20 @@
                 </div>
             </div>
 
+            <!-- 2. Loading View (Analysis Progress) -->
             <div id="loadingView" class="view-panel hidden">
-                <div class="loading-notebook">
-                    <div class="pencil-loader">...</div>
-                    <h2 class="handwritten-title" data-i18n="loading_title">Grading project...</h2>
-                    <p data-i18n="loading_sub">Scanning Flutter source and preparing the grading report.</p>
+                <div class="loading-container dashboard-card">
+                    <div class="loader-circle"></div>
+                    <h2 class="dashboard-title animate-pulse" data-i18n="loading_title">Grading project...</h2>
+                    <p class="dashboard-sub" data-i18n="loading_sub">Scanning Flutter source and preparing the grading report.</p>
 
                     <div class="log-terminal">
                         <div class="terminal-header">
+                            <div class="terminal-dots">
+                                <span class="dot red"></span>
+                                <span class="dot yellow"></span>
+                                <span class="dot green"></span>
+                            </div>
                             <span class="term-title" data-i18n="terminal_title">Progress report</span>
                         </div>
                         <div id="logTerminalContent" class="terminal-body">
@@ -107,40 +116,48 @@
                 </div>
             </div>
 
+            <!-- 3. Results View (Grading Details) -->
             <div id="resultsView" class="view-panel hidden">
                 <div class="results-header">
                     <div>
-                        <h2 id="resultRepoTitle" class="repo-title-handwritten">Repository</h2>
-                        <span id="resultRepoType" class="tag-badge">GitHub Project</span>
+                        <h2 id="resultRepoTitle" class="repo-title">Repository</h2>
+                        <span id="resultRepoType" class="status-badge">GitHub Project</span>
                     </div>
                     <div class="actions-row">
-                        <button type="button" id="exportMdBtn" class="stationery-btn reset-btn" data-i18n="btn_export_md">Export Markdown</button>
-                        <button type="button" id="printBtn" class="stationery-btn hint-btn" data-i18n="btn_print">Print / Save PDF</button>
+                        <button type="button" id="exportMdBtn" class="secondary-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V15"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                            <span data-i18n="btn_export_md">Export Markdown</span>
+                        </button>
+                        <button type="button" id="printBtn" class="secondary-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                            <span data-i18n="btn_print">Print / Save PDF</span>
+                        </button>
                     </div>
                 </div>
 
                 <div class="summary-dashboard">
-                    <div class="grade-stamp-card">
+                    <!-- Modern circular progress score display -->
+                    <div class="score-card dashboard-card">
                         <div class="stamp-circle">
                             <span id="scoreVal">--</span>
                         </div>
-                        <span class="stamp-label" data-i18n="label_score">SCORE</span>
+                        <span class="score-label" data-i18n="label_score">SCORE</span>
                     </div>
 
-                    <div class="sticky-note">
-                        <div class="sticky-note-tape"></div>
-                        <h3 class="sticky-note-title" data-i18n="label_summary">Summary</h3>
-                        <p id="aiSummaryText" class="sticky-note-text" data-i18n="summary_placeholder">The grading summary will appear here.</p>
+                    <!-- Modern executive summary panel -->
+                    <div class="summary-card dashboard-card">
+                        <h3 class="summary-title" data-i18n="label_summary">Summary</h3>
+                        <p id="aiSummaryText" class="summary-text" data-i18n="summary_placeholder">The grading summary will appear here.</p>
                     </div>
                 </div>
 
                 <div class="details-grid">
-                    <div class="notebook-card criteria-shelf">
+                    <div class="dashboard-card criteria-shelf">
                         <h3 class="shelf-title" data-i18n="label_criteria_breakdown">Criteria breakdown</h3>
                         <div id="criteriaList" class="criteria-list"></div>
                     </div>
 
-                    <div class="notebook-card warnings-shelf">
+                    <div class="dashboard-card warnings-shelf">
                         <h3 class="shelf-title" data-i18n="label_warnings">Warnings</h3>
                         <div id="warningsList" class="warnings-list"></div>
                     </div>
