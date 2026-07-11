@@ -1,6 +1,8 @@
+import logging
 import os
 import shutil
 import subprocess
+import urllib.parse
 import uuid
 from typing import Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -14,8 +16,14 @@ from env_loader import load_dotenv
 from grader import grade_project
 from providers import get_provider_config
 
+logger = logging.getLogger(__name__)
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
+
+# Security configuration
+ALLOWED_GIT_HOSTS = {"github.com", "gitlab.com", "bitbucket.org", "dev.azure.com"}
+ALLOW_LOCAL_PROJECT_PATH = os.getenv("ALLOW_LOCAL_PROJECT_PATH", "false").strip().lower() == "true"
 
 app = FastAPI(title="Flutter Code Auto-Grader")
 
@@ -79,24 +87,78 @@ async def extract_criteria(request: CriteriaExtractRequest):
 def clean_temp_dir(path):
     try:
         shutil.rmtree(path, ignore_errors=True)
-    except:
+    except OSError:
         pass
+
+def validate_git_url(url: str) -> str:
+    """
+    Validate git URL against allowlist of hosts.
+    Returns the hostname if valid, otherwise raises HTTPException.
+    Handles both http(s) and git@ SCP-style URLs.
+    """
+    # Handle git@host:path/to/repo.git style URLs
+    if url.startswith("git@"):
+        # Extract host between git@ and : or /
+        remainder = url[4:]
+        end_idx = min(
+            (remainder.find(":") if ":" in remainder else len(remainder)),
+            (remainder.find("/") if "/" in remainder else len(remainder))
+        )
+        if end_idx == len(remainder) and ":" not in remainder and "/" not in remainder:
+            end_idx = len(remainder)
+        hostname = remainder[:end_idx]
+    else:
+        # Parse http(s) URLs
+        parsed = urllib.parse.urlparse(url)
+        hostname = parsed.hostname or ""
+
+    if not hostname:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hỗ trợ clone từ GitHub, GitLab, Bitbucket hoặc Azure DevOps."
+        )
+
+    hostname_lower = hostname.lower()
+
+    # Check if hostname is in allowlist or is a subdomain of an allowed host
+    is_allowed = hostname_lower in ALLOWED_GIT_HOSTS
+    if not is_allowed:
+        for allowed_host in ALLOWED_GIT_HOSTS:
+            if hostname_lower.endswith("." + allowed_host):
+                is_allowed = True
+                break
+
+    if not is_allowed:
+        raise HTTPException(
+            status_code=400,
+            detail="Chỉ hỗ trợ clone từ GitHub, GitLab, Bitbucket hoặc Azure DevOps."
+        )
+
+    return hostname_lower
 
 @app.post("/api/grade")
 async def grade_repository(request: GradeRequest, background_tasks: BackgroundTasks):
     github_url = request.github_url.strip()
-    
-    # Check if URL is local path or git repo
-    is_local = os.path.exists(github_url) and os.path.isdir(github_url)
+
+    # Check if URL is local path or git repo (only if explicitly enabled)
+    is_local = ALLOW_LOCAL_PROJECT_PATH and os.path.exists(github_url) and os.path.isdir(github_url)
     
     if not is_local:
         if not (github_url.startswith("http://") or github_url.startswith("https://") or github_url.startswith("git@")):
-            raise HTTPException(status_code=400, detail="Đường dẫn không hợp lệ. Vui lòng nhập link GitHub hoặc đường dẫn thư mục cục bộ.")
-        
+            invalid_path_detail = (
+                "Đường dẫn không hợp lệ. Vui lòng nhập link GitHub hoặc đường dẫn thư mục cục bộ."
+                if ALLOW_LOCAL_PROJECT_PATH
+                else "Đường dẫn không hợp lệ. Vui lòng nhập link Git hợp lệ (GitHub, GitLab, Bitbucket hoặc Azure DevOps)."
+            )
+            raise HTTPException(status_code=400, detail=invalid_path_detail)
+
+        # Validate git host against allowlist (SSRF protection)
+        validate_git_url(github_url)
+
         # Clone repository
         repo_id = str(uuid.uuid4())
         target_path = os.path.join(TEMP_DIR, repo_id)
-        
+
         try:
             # We add depth=1 for fast cloning
             result = subprocess.run(
@@ -104,10 +166,12 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
                 capture_output=True, text=True, timeout=90
             )
             if result.returncode != 0:
-                raise Exception(result.stderr or "Không thể git clone dự án.")
-        except Exception as e:
+                error_msg = result.stderr or "git clone failed"
+                raise Exception(f"git clone failed for {github_url}: {error_msg}")
+        except Exception:
             clean_temp_dir(target_path)
-            raise HTTPException(status_code=500, detail=f"Lỗi khi clone repository: {str(e)}")
+            logger.exception(f"Clone failed for {github_url}")
+            raise HTTPException(status_code=500, detail="Lỗi khi clone repository. Vui lòng kiểm tra lại đường dẫn hoặc thử lại sau.")
     else:
         target_path = github_url
         
@@ -116,7 +180,7 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
         analysis_report = analyze_flutter_project(target_path)
         if "error" in analysis_report:
             raise Exception(analysis_report["error"])
-            
+
         criteria_text = request.criteria_text or request.custom_criteria
 
         # 2. Run AI provider grading or fallback heuristic
@@ -125,21 +189,22 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
             analysis_report,
             criteria_text
         )
-        
+
         # Add metadata
         result_report["repository"] = github_url
         result_report["is_local"] = is_local
-        
+
         # If it was cloned, schedule cleanup in background tasks
         if not is_local:
             background_tasks.add_task(clean_temp_dir, target_path)
-            
+
         return result_report
-        
+
     except Exception as e:
         if not is_local:
             clean_temp_dir(target_path)
-        raise HTTPException(status_code=500, detail=f"Lỗi khi phân tích và chấm điểm: {str(e)}")
+        logger.exception(f"Error grading project at {target_path}")
+        raise HTTPException(status_code=500, detail="Lỗi khi phân tích và chấm điểm dự án. Vui lòng thử lại sau.")
 
 if __name__ == "__main__":
     import uvicorn
