@@ -1,0 +1,12 @@
+tests/
+plans/
+temp_repos/
+.env
+.git/
+.venv/
+venv/
+__pycache__/
+.vscode/
+.idea/
+.codex/
+.claude/

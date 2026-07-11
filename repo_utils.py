@@ -7,7 +7,9 @@ from fastapi import HTTPException
 logger = logging.getLogger(__name__)
 
 # Security configuration
-ALLOWED_GIT_HOSTS = {"github.com", "gitlab.com", "bitbucket.org", "dev.azure.com"}
+# Repos are fetched via GitHub's HTTP API/codeload (no git binary, no writable
+# repo-relative filesystem required), so only github.com is supported.
+ALLOWED_GIT_HOSTS = {"github.com"}
 
 
 def clean_temp_dir(path):
@@ -42,7 +44,7 @@ def validate_git_url(url: str) -> str:
     if not hostname:
         raise HTTPException(
             status_code=400,
-            detail="Chỉ hỗ trợ clone từ GitHub, GitLab, Bitbucket hoặc Azure DevOps."
+            detail="Chỉ hỗ trợ link GitHub (ví dụ: https://github.com/owner/repo)."
         )
 
     hostname_lower = hostname.lower()
@@ -58,7 +60,7 @@ def validate_git_url(url: str) -> str:
     if not is_allowed:
         raise HTTPException(
             status_code=400,
-            detail="Chỉ hỗ trợ clone từ GitHub, GitLab, Bitbucket hoặc Azure DevOps."
+            detail="Chỉ hỗ trợ link GitHub (ví dụ: https://github.com/owner/repo)."
         )
 
     return hostname_lower

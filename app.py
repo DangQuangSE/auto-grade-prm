@@ -1,6 +1,6 @@
 import logging
 import os
-import subprocess
+import tempfile
 import uuid
 from typing import Optional
 from fastapi import FastAPI, HTTPException, BackgroundTasks
@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from analyzer import analyze_flutter_project
 from document_parser import DocumentParseError, decode_text_content, extract_docx_text
 from env_loader import load_dotenv
+from github_fetch import GithubFetchError, fetch_github_repo
 from grader import grade_project
 from providers import get_provider_config
 from repo_utils import clean_temp_dir, validate_git_url
@@ -34,8 +35,9 @@ class CriteriaExtractRequest(BaseModel):
     filename: str
     content_base64: str
 
-# Ensure temp directory exists inside workspace
-TEMP_DIR = os.path.join(BASE_DIR, "temp_repos")
+# Repos are downloaded into the OS temp dir (resolves to /tmp on Vercel,
+# the only writable path in that read-only serverless filesystem).
+TEMP_DIR = os.path.join(tempfile.gettempdir(), "flutter_autograder_repos")
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 # Mount static files
@@ -93,30 +95,28 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
             invalid_path_detail = (
                 "Đường dẫn không hợp lệ. Vui lòng nhập link GitHub hoặc đường dẫn thư mục cục bộ."
                 if ALLOW_LOCAL_PROJECT_PATH
-                else "Đường dẫn không hợp lệ. Vui lòng nhập link Git hợp lệ (GitHub, GitLab, Bitbucket hoặc Azure DevOps)."
+                else "Đường dẫn không hợp lệ. Vui lòng nhập link GitHub hợp lệ (ví dụ: https://github.com/owner/repo)."
             )
             raise HTTPException(status_code=400, detail=invalid_path_detail)
 
         # Validate git host against allowlist (SSRF protection)
         validate_git_url(github_url)
 
-        # Clone repository
+        # Download repository snapshot via GitHub's HTTP API (no git binary,
+        # no writable repo-relative filesystem required — safe for serverless).
         repo_id = str(uuid.uuid4())
-        target_path = os.path.join(TEMP_DIR, repo_id)
+        clone_dir = os.path.join(TEMP_DIR, repo_id)
 
         try:
-            # We add depth=1 for fast cloning
-            result = subprocess.run(
-                ["git", "clone", "--depth", "1", github_url, target_path],
-                capture_output=True, text=True, timeout=90
-            )
-            if result.returncode != 0:
-                error_msg = result.stderr or "git clone failed"
-                raise Exception(f"git clone failed for {github_url}: {error_msg}")
+            target_path = fetch_github_repo(github_url, clone_dir, token=os.getenv("GITHUB_TOKEN"))
+        except GithubFetchError as exc:
+            clean_temp_dir(clone_dir)
+            logger.warning(f"Fetch failed for {github_url}: {exc}")
+            raise HTTPException(status_code=400, detail=str(exc))
         except Exception:
-            clean_temp_dir(target_path)
-            logger.exception(f"Clone failed for {github_url}")
-            raise HTTPException(status_code=500, detail="Lỗi khi clone repository. Vui lòng kiểm tra lại đường dẫn hoặc thử lại sau.")
+            clean_temp_dir(clone_dir)
+            logger.exception(f"Fetch failed for {github_url}")
+            raise HTTPException(status_code=500, detail="Lỗi khi tải repository. Vui lòng kiểm tra lại đường dẫn hoặc thử lại sau.")
     else:
         target_path = github_url
         
@@ -139,15 +139,15 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
         result_report["repository"] = github_url
         result_report["is_local"] = is_local
 
-        # If it was cloned, schedule cleanup in background tasks
+        # If it was downloaded, schedule cleanup in background tasks
         if not is_local:
-            background_tasks.add_task(clean_temp_dir, target_path)
+            background_tasks.add_task(clean_temp_dir, clone_dir)
 
         return result_report
 
     except Exception as e:
         if not is_local:
-            clean_temp_dir(target_path)
+            clean_temp_dir(clone_dir)
         logger.exception(f"Error grading project at {target_path}")
         raise HTTPException(status_code=500, detail="Lỗi khi phân tích và chấm điểm dự án. Vui lòng thử lại sau.")
 
