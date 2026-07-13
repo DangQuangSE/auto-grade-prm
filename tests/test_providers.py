@@ -3,7 +3,7 @@ import os
 import unittest
 from unittest.mock import patch
 
-from providers import OpenRouterProvider, ProviderError, get_provider_config, validate_grading_report
+from providers import OpenCodeProvider, OpenRouterProvider, ProviderError, get_provider_config, validate_grading_report
 
 
 class TestOpenRouterProvider(unittest.TestCase):
@@ -11,9 +11,25 @@ class TestOpenRouterProvider(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             config = get_provider_config()
 
-        self.assertEqual(config["provider"], "openrouter")
-        self.assertEqual(config["model"], "tencent/hy3:free")
+        self.assertEqual(config["provider"], "opencode")
+        self.assertEqual(config["model"], "mimo-v2.5-free")
         self.assertFalse(config["api_key_configured"])
+        self.assertEqual(config["fallback_provider"], "openrouter")
+        self.assertEqual(config["fallback_model"], "tencent/hy3:free")
+        self.assertFalse(config["fallback_api_key_configured"])
+
+    def test_opencode_normalizes_base_url_to_chat_completions(self):
+        with patch.dict(
+            os.environ,
+            {"OPENCODE_BASE_URL": "https://opencode.ai/zen/v1/"},
+            clear=True,
+        ):
+            provider = OpenCodeProvider()
+
+        self.assertEqual(provider.provider, "opencode")
+        self.assertEqual(provider.model, "mimo-v2.5-free")
+        self.assertEqual(provider.base_url, "https://opencode.ai/zen/v1/chat/completions")
+        self.assertEqual(provider._response_format(), {"type": "json_object"})
 
     def test_missing_api_key_returns_controlled_error(self):
         with patch.dict(os.environ, {"OPENROUTER_MODEL": "tencent/hy3:free"}, clear=True):
