@@ -103,6 +103,17 @@ class TestGrader(unittest.TestCase):
         self.assertIn("treat it as a false positive", prompt)
         self.assertIn("do not lower any criterion score", prompt)
 
+    @patch("prompt_builder.get_key_files_content", return_value={})
+    def test_grading_prompt_reviews_200_line_files_without_automatic_penalty(self, _mock_files):
+        rubric = parse_rubric("Code quality | 100%")
+
+        prompt = build_grading_prompt("sample", minimal_analysis(), "criteria", rubric)
+
+        self.assertIn("never treat line count alone as a defect", prompt)
+        self.assertIn("200-299 lines means", prompt)
+        self.assertIn("A cohesive Bloc, Cubit, repository", prompt)
+        self.assertIn("keep existing routes, callbacks, state ownership", prompt)
+
     def test_parse_rubric_normalizes_missing_weights(self):
         rubric = parse_rubric("Architecture\nState management\nTesting")
 
