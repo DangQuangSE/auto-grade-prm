@@ -30,6 +30,7 @@ def analyze_flutter_project(project_path):
         "stats": {
             "total_dart_files": 0,
             "total_lines_of_code": 0,
+            "files_over_200": [],
             "large_files": [],
             "naming_violations": []
         },
@@ -149,6 +150,20 @@ def analyze_flutter_project(project_path):
 
                         # Read full content for regex analysis
                         content = "".join(lines)
+
+                        if num_lines >= 200:
+                            report["stats"]["files_over_200"].append({
+                                "file": rel_path,
+                                "lines": num_lines,
+                                "class_count": len(re.findall(
+                                    r'(?m)^\s*(?:(?:abstract|sealed|final|base)\s+)?class\s+',
+                                    content,
+                                )),
+                                "build_method_count": len(re.findall(
+                                    r'\bWidget\s+build\s*\(',
+                                    content,
+                                )),
+                            })
 
                         # Check for API calls in build methods
                         # Regex to look for async HTTP, API fetches or state changes in build methods

@@ -10,6 +10,9 @@ from typing import Any, Dict, Optional
 OPENROUTER_PROVIDER = "openrouter"
 DEFAULT_OPENROUTER_MODEL = "tencent/hy3:free"
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENCODE_PROVIDER = "opencode"
+DEFAULT_OPENCODE_MODEL = "mimo-v2.5-free"
+DEFAULT_OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
 
 
 class ProviderError(Exception):
@@ -35,11 +38,13 @@ def _get_model() -> str:
 
 
 def get_provider_config() -> Dict[str, Any]:
-    api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
     return {
-        "provider": OPENROUTER_PROVIDER,
-        "model": _get_model(),
-        "api_key_configured": bool(api_key),
+        "provider": OPENCODE_PROVIDER,
+        "model": os.getenv("OPENCODE_MODEL", DEFAULT_OPENCODE_MODEL).strip() or DEFAULT_OPENCODE_MODEL,
+        "api_key_configured": bool(os.getenv("OPENCODE_API_KEY", "").strip()),
+        "fallback_provider": OPENROUTER_PROVIDER,
+        "fallback_model": _get_model(),
+        "fallback_api_key_configured": bool(os.getenv("OPENROUTER_API_KEY", "").strip()),
     }
 
 
@@ -83,6 +88,8 @@ def validate_grading_report(report: Dict[str, Any]) -> Dict[str, Any]:
 
 
 class OpenRouterProvider:
+    api_key_env = "OPENROUTER_API_KEY"
+
     def __init__(self) -> None:
         self.provider = OPENROUTER_PROVIDER
         self.model = _get_model()
@@ -90,7 +97,7 @@ class OpenRouterProvider:
             os.getenv("OPENROUTER_BASE_URL", DEFAULT_OPENROUTER_BASE_URL).strip()
             or DEFAULT_OPENROUTER_BASE_URL
         )
-        self.api_key = os.getenv("OPENROUTER_API_KEY", "").strip()
+        self.api_key = os.getenv(self.api_key_env, "").strip()
 
     def generate_json(self, prompt: str) -> ProviderResult:
         if not self.api_key:
@@ -98,7 +105,7 @@ class OpenRouterProvider:
                 ok=False,
                 provider=self.provider,
                 model=self.model,
-                error="OPENROUTER_API_KEY is not configured.",
+                error=f"{self.api_key_env} is not configured.",
             )
 
         try:
@@ -141,6 +148,10 @@ class OpenRouterProvider:
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
                 "Accept": "application/json",
+                "User-Agent": os.getenv(
+                    "AI_PROVIDER_USER_AGENT",
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) FlutterCodeAutoGrader/1.0",
+                ),
                 "HTTP-Referer": os.getenv("OPENROUTER_HTTP_REFERER", "http://localhost:8000"),
                 "X-Title": os.getenv("OPENROUTER_APP_TITLE", "Flutter Code Auto-Grader"),
             },
@@ -151,11 +162,11 @@ class OpenRouterProvider:
                 return response.read()
         except urllib.error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
-            raise ProviderError(f"OpenRouter HTTP error {exc.code}: {details}") from exc
+            raise ProviderError(f"{self.provider} HTTP error {exc.code}: {details}") from exc
         except urllib.error.URLError as exc:
-            raise ProviderError(f"OpenRouter connection error: {exc.reason}") from exc
+            raise ProviderError(f"{self.provider} connection error: {exc.reason}") from exc
         except TimeoutError as exc:
-            raise ProviderError("OpenRouter request timed out.") from exc
+            raise ProviderError(f"{self.provider} request timed out.") from exc
 
     @staticmethod
     def parse_response(response_bytes: bytes) -> Dict[str, Any]:
@@ -163,12 +174,12 @@ class OpenRouterProvider:
             envelope = json.loads(response_bytes.decode("utf-8"))
             content = envelope["choices"][0]["message"]["content"]
         except (UnicodeDecodeError, json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
-            raise ProviderError("OpenRouter response envelope is invalid.") from exc
+            raise ProviderError("Provider response envelope is invalid.") from exc
 
         try:
             report = json.loads(content)
         except json.JSONDecodeError as exc:
-            raise ProviderError("OpenRouter message content must be valid JSON.") from exc
+            raise ProviderError("Provider message content must be valid JSON.") from exc
 
         return validate_grading_report(report)
 
@@ -232,3 +243,18 @@ class OpenRouterProvider:
                 },
             },
         }
+
+
+class OpenCodeProvider(OpenRouterProvider):
+    api_key_env = "OPENCODE_API_KEY"
+
+    def __init__(self) -> None:
+        self.provider = OPENCODE_PROVIDER
+        self.model = os.getenv("OPENCODE_MODEL", DEFAULT_OPENCODE_MODEL).strip() or DEFAULT_OPENCODE_MODEL
+        base_url = os.getenv("OPENCODE_BASE_URL", DEFAULT_OPENCODE_BASE_URL).strip() or DEFAULT_OPENCODE_BASE_URL
+        self.base_url = f"{base_url.rstrip('/')}/chat/completions"
+        self.api_key = os.getenv(self.api_key_env, "").strip()
+
+    @staticmethod
+    def _response_format() -> Dict[str, Any]:
+        return {"type": "json_object"}

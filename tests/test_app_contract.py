@@ -11,6 +11,8 @@ class TestAppContract(unittest.TestCase):
         with patch.dict(
             "os.environ",
             {
+                "OPENCODE_API_KEY": "sk-opencode-secret",
+                "OPENCODE_MODEL": "mimo-v2.5-free",
                 "OPENROUTER_API_KEY": "sk-secret-value",
                 "OPENROUTER_MODEL": "tencent/hy3:free",
             },
@@ -20,9 +22,12 @@ class TestAppContract(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data["provider"], "openrouter")
-        self.assertEqual(data["model"], "tencent/hy3:free")
+        self.assertEqual(data["provider"], "opencode")
+        self.assertEqual(data["model"], "mimo-v2.5-free")
         self.assertTrue(data["api_key_configured"])
+        self.assertEqual(data["fallback_provider"], "openrouter")
+        self.assertTrue(data["fallback_api_key_configured"])
+        self.assertNotIn("sk-opencode-secret", str(data))
         self.assertNotIn("sk-secret-value", str(data))
 
 
