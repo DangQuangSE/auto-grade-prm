@@ -59,6 +59,14 @@ def build_grading_prompt(
     weights_instruction = "\n".join(
         f"- {name}: {item['weight'] * 100:.2f}%" for name, item in parsed_rubric.items()
     )
+    testing_criteria = [
+        name for name, item in parsed_rubric.items() if item.get("key") == "testing"
+    ]
+    testing_instruction = (
+        "\n".join(f'- "{name}"' for name in testing_criteria)
+        if testing_criteria
+        else "(none)"
+    )
 
     return f"""
 You are a senior Flutter/Dart code reviewer grading a student project.
@@ -76,6 +84,9 @@ User criteria template:
 Weights to apply:
 {weights_instruction}
 
+Testing criteria that receive the manual-verification policy:
+{testing_instruction}
+
 Return exactly one JSON object with this schema:
 {{
   "overall_score": <number from 0.0 to 10.0>,
@@ -88,6 +99,7 @@ Rules:
 - Return valid JSON only.
 - Use the exact criterion names shown in criteria_breakdown.
 - Each criterion score must be from 0.0 to 10.0.
+- For every criterion listed under "Testing criteria that receive the manual-verification policy", always assign score 10.0. Unit/widget tests are optional because functional testing may already have been completed manually, so missing automated test files must not reduce the score. Still write normal, evidence-based feedback and an actionable suggestion noting the absence or quality of automated tests; do not claim that automated tests exist without evidence.
 - "feedback" must be specific and evidence-based: name the exact file (from the source excerpts or static analysis) and describe the actual code pattern found there. Avoid generic statements like "code could be better" without pointing to where.
 - "suggestion" must give a concrete, actionable fix for that specific file/pattern: describe the refactor step and include a short corrected Dart code snippet (wrapped in a ```dart fence) showing the improved version.
 - Every entry in "warnings" must start with the exact file name (e.g. "app_router.dart: ...") the issue was found in, followed by a concrete description of the problem (what pattern, how many lines/occurrences, why it matters). Never write a vague warning with no file name attached (e.g. do not write "Chưa có evidence về test tự động" alone — instead name which file(s) lack test coverage or state that no test files exist in the excerpts at all).

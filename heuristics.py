@@ -113,8 +113,8 @@ def get_heuristic_score_for_key(key: str, analysis: Dict[str, Any]) -> Dict[str,
 
     if key == "testing":
         return {
-            "score": 6.0,
-            "feedback": "Static analysis cannot fully verify unit/widget tests; review test coverage manually.",
+            "score": 10.0,
+            "feedback": "Unit/widget tests are optional for scoring because functional testing may have been completed manually; static analysis cannot verify the manual test results.",
             "suggestion": "Thêm ít nhất vài unit test cho logic quan trọng (service/repository) và widget test cho các màn hình chính bằng flutter_test, hoặc ghi lại kết quả kiểm thử thủ công cho các chức năng chính (thêm/sửa/xóa, validate form, navigation).",
         }
 
