@@ -122,12 +122,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 content_base64: contentBase64
             })
         });
-        if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.detail || "Could not read the criteria file.");
-        }
-        const data = await response.json();
+        const data = await readApiResponse(response, "Could not read the criteria file.");
+        if (!response.ok) throw new Error(data.detail || "Could not read the criteria file.");
         return data.criteria || "";
+    }
+
+    async function readApiResponse(response, fallbackMessage) {
+        const body = await response.text();
+        if (!body) throw new Error(fallbackMessage);
+        try {
+            return JSON.parse(body);
+        } catch (_) {
+            throw new Error(body.trim() || fallbackMessage);
+        }
     }
 
     function renderProviderStatus() {
@@ -136,18 +143,23 @@ document.addEventListener("DOMContentLoaded", () => {
             providerStatusText.textContent = t("provider_unavailable");
             return;
         }
-        providerStatus.classList.toggle("configured", providerInfo.api_key_configured);
-        providerStatus.classList.toggle("missing", !providerInfo.api_key_configured);
-        const suffix = providerInfo.api_key_configured
-            ? t("provider_configured_suffix")
-            : t("provider_missing_suffix");
-        providerStatusText.textContent = `${providerInfo.provider}: ${providerInfo.model} ${suffix}`;
+        const primaryConfigured = providerInfo.api_key_configured;
+        const fallbackConfigured = providerInfo.fallback_api_key_configured;
+        const available = primaryConfigured || fallbackConfigured;
+        providerStatus.classList.toggle("configured", available);
+        providerStatus.classList.toggle("missing", !available);
+        if (!primaryConfigured && fallbackConfigured) {
+            providerStatusText.textContent = `${providerInfo.fallback_provider}: ${providerInfo.fallback_model} ${t("provider_configured_suffix")} ${t("provider_fallback_suffix")}`;
+        } else {
+            const suffix = primaryConfigured ? t("provider_configured_suffix") : t("provider_missing_suffix");
+            providerStatusText.textContent = `${providerInfo.provider}: ${providerInfo.model} ${suffix}`;
+        }
     }
 
     async function loadProviderInfo() {
         try {
             const response = await fetch("/api/provider");
-            providerInfo = await response.json();
+            providerInfo = await readApiResponse(response, t("provider_unavailable"));
         } catch (error) {
             providerInfo = null;
         }
@@ -220,12 +232,8 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.detail || "The grading request failed.");
-            }
-
-            const report = await response.json();
+            const report = await readApiResponse(response, "The grading request failed.");
+            if (!response.ok) throw new Error(report.detail || "The grading request failed.");
             currentReport = report;
 
             if (report.grading_mode === "heuristic" && report.provider_error) {

@@ -13,6 +13,10 @@ DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENCODE_PROVIDER = "opencode"
 DEFAULT_OPENCODE_MODEL = "mimo-v2.5-free"
 DEFAULT_OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
+DEFAULT_PROVIDER_TIMEOUT_SECONDS = 20.0
+MAX_PROVIDER_TIMEOUT_SECONDS = 25.0
+DEFAULT_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 8.0
+MAX_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 10.0
 
 
 class ProviderError(Exception):
@@ -35,6 +39,21 @@ def _derive_seed(prompt: str) -> int:
 
 def _get_model() -> str:
     return os.getenv("OPENROUTER_MODEL", DEFAULT_OPENROUTER_MODEL).strip() or DEFAULT_OPENROUTER_MODEL
+
+
+def _get_timeout(
+    env_name: str = "OPENROUTER_TIMEOUT_SECONDS",
+    default: float = DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+    maximum: float = MAX_PROVIDER_TIMEOUT_SECONDS,
+) -> float:
+    raw_value = os.getenv(env_name, os.getenv("AI_PROVIDER_TIMEOUT_SECONDS", "")).strip()
+    if not raw_value:
+        return default
+    try:
+        timeout = float(raw_value)
+    except ValueError:
+        return default
+    return min(maximum, max(1.0, timeout))
 
 
 def get_provider_config() -> Dict[str, Any]:
@@ -98,6 +117,7 @@ class OpenRouterProvider:
             or DEFAULT_OPENROUTER_BASE_URL
         )
         self.api_key = os.getenv(self.api_key_env, "").strip()
+        self.timeout = _get_timeout()
 
     def generate_json(self, prompt: str) -> ProviderResult:
         if not self.api_key:
@@ -158,7 +178,7 @@ class OpenRouterProvider:
         )
 
         try:
-            with urllib.request.urlopen(request, timeout=120) as response:
+            with urllib.request.urlopen(request, timeout=self.timeout) as response:
                 return response.read()
         except urllib.error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
@@ -254,6 +274,11 @@ class OpenCodeProvider(OpenRouterProvider):
         base_url = os.getenv("OPENCODE_BASE_URL", DEFAULT_OPENCODE_BASE_URL).strip() or DEFAULT_OPENCODE_BASE_URL
         self.base_url = f"{base_url.rstrip('/')}/chat/completions"
         self.api_key = os.getenv(self.api_key_env, "").strip()
+        self.timeout = _get_timeout(
+            env_name="OPENCODE_TIMEOUT_SECONDS",
+            default=DEFAULT_PRIMARY_PROVIDER_TIMEOUT_SECONDS,
+            maximum=MAX_PRIMARY_PROVIDER_TIMEOUT_SECONDS,
+        )
 
     @staticmethod
     def _response_format() -> Dict[str, Any]:

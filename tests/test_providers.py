@@ -1,7 +1,7 @@
 import json
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from providers import OpenCodeProvider, OpenRouterProvider, ProviderError, get_provider_config, validate_grading_report
 
@@ -40,6 +40,45 @@ class TestOpenRouterProvider(unittest.TestCase):
         self.assertEqual(result.provider, "openrouter")
         self.assertEqual(result.model, "tencent/hy3:free")
         self.assertIn("OPENROUTER_API_KEY", result.error)
+
+    def test_provider_timeout_defaults_below_vercel_limit(self):
+        with patch.dict(os.environ, {}, clear=True):
+            provider = OpenRouterProvider()
+
+        self.assertEqual(provider.timeout, 20.0)
+        self.assertLess(provider.timeout, 60)
+
+    def test_provider_timeout_is_configurable_and_capped(self):
+        with patch.dict(os.environ, {"OPENROUTER_TIMEOUT_SECONDS": "90"}, clear=True):
+            provider = OpenRouterProvider()
+
+        self.assertEqual(provider.timeout, 25.0)
+
+    def test_primary_provider_has_a_smaller_timeout_budget(self):
+        with patch.dict(os.environ, {"OPENCODE_TIMEOUT_SECONDS": "90"}, clear=True):
+            provider = OpenCodeProvider()
+
+        self.assertEqual(provider.timeout, 10.0)
+
+    def test_invalid_provider_timeout_uses_default(self):
+        with patch.dict(os.environ, {"AI_PROVIDER_TIMEOUT_SECONDS": "invalid"}, clear=True):
+            provider = OpenRouterProvider()
+
+        self.assertEqual(provider.timeout, 20.0)
+
+    def test_post_uses_configured_provider_timeout(self):
+        response = MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+        with patch.dict(
+            os.environ,
+            {"OPENROUTER_API_KEY": "test-key", "AI_PROVIDER_TIMEOUT_SECONDS": "12"},
+            clear=True,
+        ):
+            provider = OpenRouterProvider()
+            with patch("urllib.request.urlopen", return_value=response) as urlopen:
+                provider._post({"model": "test"})
+
+        self.assertEqual(urlopen.call_args.kwargs["timeout"], 12.0)
 
     def test_parse_valid_openrouter_response(self):
         body = {

@@ -21,6 +21,7 @@ temp_repos/
 *.njsproj
 *.sln
 *.swp
+local-server.*.log
 .codex/
 .claude/
 
