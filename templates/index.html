@@ -116,7 +116,17 @@
                 </div>
             </div>
 
-            <!-- 3. Results View (Grading Details) -->
+            <!-- 3. AI Service Error View -->
+            <div id="errorView" class="view-panel hidden" tabindex="-1">
+                <div class="service-error-card dashboard-card" role="alert" aria-live="assertive">
+                    <div class="service-error-icon" aria-hidden="true">!</div>
+                    <h2 class="service-error-title" data-i18n="ai_error_title">Không thể chấm điểm dự án</h2>
+                    <p class="service-error-message" data-i18n="ai_error_message">Hệ thống hiện không thể kết nối tới mô hình AI nên dự án chưa được chấm điểm. Vui lòng thử lại sau.</p>
+                    <button type="button" id="retryGradeBtn" class="primary-btn service-error-retry" data-i18n="btn_retry_grade">Thử chấm lại</button>
+                </div>
+            </div>
+
+            <!-- 4. Results View (Grading Details) -->
             <div id="resultsView" class="view-panel hidden">
                 <div class="results-header">
                     <div>
@@ -165,6 +175,8 @@
             </div>
         </main>
     </div>
+
+    <div id="toastContainer" class="toast-container"></div>
 
     <script src="/static/i18n.js"></script>
     <script src="/static/main.js"></script>

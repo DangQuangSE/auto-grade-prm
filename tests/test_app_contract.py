@@ -4,10 +4,28 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app import app
+from app import AI_GRADING_UNAVAILABLE_MESSAGE, app
+from grader import GradingUnavailableError
 
 
 class TestAppContract(unittest.TestCase):
+    def test_grade_returns_generic_503_when_all_ai_providers_fail(self):
+        with patch("app.fetch_github_repo", return_value="sample"), patch(
+            "app.validate_git_url"
+        ), patch("app.validate_flutter_project", return_value=None), patch(
+            "app.analyze_flutter_project", return_value={"stats": {}, "heuristics": {}}
+        ), patch(
+            "app.grade_project", side_effect=GradingUnavailableError("secret provider detail")
+        ):
+            response = TestClient(app).post(
+                "/api/grade",
+                json={"github_url": "https://github.com/example/flutter-app"},
+            )
+
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.json()["detail"], AI_GRADING_UNAVAILABLE_MESSAGE)
+        self.assertNotIn("secret provider detail", response.text)
+
     def test_grade_rejects_non_flutter_repository_before_grading(self):
         with tempfile.TemporaryDirectory() as project_path:
             with patch("app.fetch_github_repo", return_value=project_path), patch(

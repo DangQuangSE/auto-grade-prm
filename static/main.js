@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const criteriaFile = document.getElementById("criteriaFile");
     const welcomeView = document.getElementById("welcomeView");
     const loadingView = document.getElementById("loadingView");
+    const errorView = document.getElementById("errorView");
     const resultsView = document.getElementById("resultsView");
     const logTerminalContent = document.getElementById("logTerminalContent");
     const scoreVal = document.getElementById("scoreVal");
@@ -19,6 +20,8 @@ document.addEventListener("DOMContentLoaded", () => {
     const providerStatus = document.getElementById("providerStatus");
     const providerStatusText = document.getElementById("providerStatusText");
     const langSwitch = document.getElementById("langSwitch");
+    const retryGradeBtn = document.getElementById("retryGradeBtn");
+    const toastContainer = document.getElementById("toastContainer");
 
     let currentReport = null;
     let providerInfo = null;
@@ -82,10 +85,12 @@ document.addEventListener("DOMContentLoaded", () => {
     function switchView(viewName) {
         welcomeView.classList.add("hidden");
         loadingView.classList.add("hidden");
+        errorView.classList.add("hidden");
         resultsView.classList.add("hidden");
 
         if (viewName === "welcome") welcomeView.classList.remove("hidden");
         if (viewName === "loading") loadingView.classList.remove("hidden");
+        if (viewName === "error") errorView.classList.remove("hidden");
         if (viewName === "results") resultsView.classList.remove("hidden");
     }
 
@@ -99,6 +104,63 @@ document.addEventListener("DOMContentLoaded", () => {
         p.innerText = `> ${text}`;
         logTerminalContent.appendChild(p);
         logTerminalContent.scrollTop = logTerminalContent.scrollHeight;
+    }
+
+    function showToast(message, type = "error", duration = null) {
+        const toast = document.createElement("div");
+        toast.className = `toast toast-${type}`;
+        toast.setAttribute("role", type === "error" ? "alert" : "status");
+
+        const text = document.createElement("span");
+        text.className = "toast-message";
+        text.textContent = message;
+
+        const closeButton = document.createElement("button");
+        closeButton.type = "button";
+        closeButton.className = "toast-close";
+        closeButton.setAttribute("aria-label", t("toast_close"));
+        closeButton.textContent = "×";
+
+        let removed = false;
+        let timerId = null;
+        let startedAt = 0;
+        let remaining = duration ?? (type === "error" ? 10000 : 6000);
+
+        const removeToast = () => {
+            if (removed) return;
+            removed = true;
+            if (timerId !== null) window.clearTimeout(timerId);
+            toast.classList.add("toast-leaving");
+            const fallbackId = window.setTimeout(() => toast.remove(), 300);
+            toast.addEventListener("animationend", () => {
+                window.clearTimeout(fallbackId);
+                toast.remove();
+            }, { once: true });
+        };
+        const scheduleRemoval = () => {
+            if (removed || remaining <= 0) return removeToast();
+            startedAt = Date.now();
+            timerId = window.setTimeout(removeToast, remaining);
+        };
+        const pauseRemoval = () => {
+            if (timerId === null) return;
+            window.clearTimeout(timerId);
+            timerId = null;
+            remaining = Math.max(0, remaining - (Date.now() - startedAt));
+        };
+        const resumeRemoval = () => {
+            if (toast.matches(":hover") || toast.contains(document.activeElement)) return;
+            scheduleRemoval();
+        };
+
+        closeButton.addEventListener("click", removeToast);
+        toast.addEventListener("mouseenter", pauseRemoval);
+        toast.addEventListener("mouseleave", resumeRemoval);
+        toast.addEventListener("focusin", pauseRemoval);
+        toast.addEventListener("focusout", resumeRemoval);
+        toast.append(text, closeButton);
+        toastContainer.appendChild(toast);
+        scheduleRemoval();
     }
 
     function arrayBufferToBase64(buffer) {
@@ -174,7 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const lowerName = file.name.toLowerCase();
         const validName = lowerName.endsWith(".docx") || lowerName.endsWith(".md") || lowerName.endsWith(".txt");
         if (!validName) {
-            alert(t("alert_invalid_file"));
+            showToast(t("alert_invalid_file"));
             criteriaFile.value = "";
             return;
         }
@@ -183,7 +245,7 @@ document.addEventListener("DOMContentLoaded", () => {
             customCriteria.value = await extractCriteriaFile(file);
             validateCriteria();
         } catch (error) {
-            alert(t("alert_read_file_error", { message: error.message }));
+            showToast(t("alert_read_file_error", { message: error.message }));
             criteriaFile.value = "";
             validateCriteria();
         }
@@ -202,6 +264,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     applyStaticTranslations();
     loadProviderInfo();
+
+    retryGradeBtn.addEventListener("click", () => {
+        gradeForm.requestSubmit();
+    });
 
     gradeForm.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -232,15 +298,20 @@ document.addEventListener("DOMContentLoaded", () => {
                 })
             });
 
+            if (response.status === 503 || response.status === 504) {
+                addLog(t("log_ai_unavailable"), "error");
+                switchView("error");
+                errorView.focus();
+                return;
+            }
+
             const report = await readApiResponse(response, "The grading request failed.");
-            if (!response.ok) throw new Error(report.detail || "The grading request failed.");
+            if (!response.ok) {
+                throw new Error(report.detail || "The grading request failed.");
+            }
             currentReport = report;
 
-            if (report.grading_mode === "heuristic" && report.provider_error) {
-                addLog(t("log_fallback", { error: report.provider_error }), "error");
-            } else {
-                addLog(t("log_ai_done"), "success");
-            }
+            addLog(t("log_ai_done"), "success");
             addLog(t("log_rendering"), "success");
 
             setTimeout(() => {
@@ -249,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }, 400);
         } catch (error) {
             addLog(t("log_error_prefix", { message: error.message }), "error");
-            alert(t("alert_grade_error", { message: error.message }));
+            showToast(t("alert_grade_error", { message: error.message }));
             switchView("welcome");
         }
     });

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import patch
 
-from grader import DEFAULT_CRITERIA_TEXT, apply_manual_testing_policy, grade_project, parse_rubric
+from grader import GradingUnavailableError, apply_manual_testing_policy, grade_project, parse_rubric
 from heuristics import get_heuristic_score_for_key
 from prompt_builder import build_grading_prompt
 from providers import ProviderResult
@@ -168,7 +168,7 @@ No duplicated widgets or constants
         self.assertEqual(report["provider"], "openrouter")
         self.assertEqual(report["model"], "tencent/hy3:free")
 
-    def test_provider_failure_falls_back_to_default_template(self):
+    def test_provider_failure_does_not_return_a_heuristic_score(self):
         provider_result = ProviderResult(
             ok=False,
             provider="openrouter",
@@ -181,16 +181,11 @@ No duplicated widgets or constants
                 ok=False, provider="opencode", model="mimo-v2.5-free", error="network down"
             )
             provider_cls.return_value.generate_json.return_value = provider_result
-            report = grade_project("sample", minimal_analysis(), "Only custom criterion | 100%")
+            with self.assertRaises(GradingUnavailableError) as ctx:
+                grade_project("sample", minimal_analysis(), "Only custom criterion | 100%")
 
-        self.assertEqual(report["grading_mode"], "heuristic")
-        self.assertIn("opencode: network down", report["provider_error"])
-        self.assertIn("openrouter: network down", report["provider_error"])
-        self.assertNotIn("Only custom criterion", report["criteria_breakdown"])
-        self.assertTrue(DEFAULT_CRITERIA_TEXT)
-        for detail in report["criteria_breakdown"].values():
-            self.assertIn("suggestion", detail)
-            self.assertTrue(detail["suggestion"])
+        self.assertIn("opencode: network down", str(ctx.exception))
+        self.assertIn("openrouter: network down", str(ctx.exception))
 
 
 if __name__ == "__main__":

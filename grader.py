@@ -2,8 +2,11 @@ from typing import Any, Dict, Optional
 
 from providers import OpenCodeProvider, OpenRouterProvider
 from rubric import DEFAULT_CRITERIA_TEXT, parse_rubric
-from heuristics import fallback_heuristic_grade
 from prompt_builder import build_grading_prompt
+
+
+class GradingUnavailableError(RuntimeError):
+    """Raised when no configured AI provider can produce a grading report."""
 
 
 def apply_manual_testing_policy(
@@ -47,17 +50,9 @@ def grade_project(
         report["grading_mode"] = "ai"
         return report
 
-    default_rubric = parse_rubric(DEFAULT_CRITERIA_TEXT)
-    report = fallback_heuristic_grade(
-        analysis_report,
-        default_rubric,
-        provider_error="; ".join(
-            f"{result.provider}: {result.error}" for result in provider_results
-        ),
+    raise GradingUnavailableError(
+        "; ".join(f"{result.provider}: {result.error}" for result in provider_results)
     )
-    report["provider"] = "heuristic"
-    report["model"] = None
-    return report
 
 
 DEFAULT_RUBRIC = parse_rubric(DEFAULT_CRITERIA_TEXT)

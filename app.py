@@ -12,11 +12,16 @@ from analyzer import analyze_flutter_project, validate_flutter_project
 from document_parser import DocumentParseError, decode_text_content, extract_docx_text
 from env_loader import load_dotenv
 from github_fetch import GithubFetchError, fetch_github_repo
-from grader import grade_project
+from grader import GradingUnavailableError, grade_project
 from providers import get_provider_config
 from repo_utils import clean_temp_dir, validate_git_url
 
 logger = logging.getLogger(__name__)
+
+AI_GRADING_UNAVAILABLE_MESSAGE = (
+    "Hệ thống hiện không thể kết nối tới mô hình AI nên dự án chưa được chấm điểm. "
+    "Vui lòng thử lại sau."
+)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -132,7 +137,7 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
 
         criteria_text = request.criteria_text or request.custom_criteria
 
-        # 2. Run AI provider grading or fallback heuristic
+        # 2. Run AI provider grading
         result_report = grade_project(
             target_path,
             analysis_report,
@@ -153,6 +158,11 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
         if not is_local:
             clean_temp_dir(clone_dir)
         raise
+    except GradingUnavailableError as exc:
+        if not is_local:
+            clean_temp_dir(clone_dir)
+        logger.warning("AI grading unavailable for %s: %s", github_url, exc)
+        raise HTTPException(status_code=503, detail=AI_GRADING_UNAVAILABLE_MESSAGE) from exc
     except Exception as e:
         if not is_local:
             clean_temp_dir(clone_dir)
