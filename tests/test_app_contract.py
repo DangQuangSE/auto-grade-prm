@@ -1,3 +1,4 @@
+import tempfile
 import unittest
 from unittest.mock import patch
 
@@ -7,6 +8,20 @@ from app import app
 
 
 class TestAppContract(unittest.TestCase):
+    def test_grade_rejects_non_flutter_repository_before_grading(self):
+        with tempfile.TemporaryDirectory() as project_path:
+            with patch("app.fetch_github_repo", return_value=project_path), patch(
+                "app.validate_git_url"
+            ), patch("app.grade_project") as grade_project:
+                response = TestClient(app).post(
+                    "/api/grade",
+                    json={"github_url": "https://github.com/example/not-flutter"},
+                )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("thiếu pubspec.yaml", response.json()["detail"])
+        grade_project.assert_not_called()
+
     def test_provider_endpoint_does_not_expose_api_key(self):
         with patch.dict(
             "os.environ",

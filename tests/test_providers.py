@@ -15,7 +15,7 @@ class TestOpenRouterProvider(unittest.TestCase):
         self.assertEqual(config["model"], "mimo-v2.5-free")
         self.assertFalse(config["api_key_configured"])
         self.assertEqual(config["fallback_provider"], "openrouter")
-        self.assertEqual(config["fallback_model"], "tencent/hy3:free")
+        self.assertEqual(config["fallback_model"], "openrouter/free")
         self.assertFalse(config["fallback_api_key_configured"])
 
     def test_opencode_normalizes_base_url_to_chat_completions(self):
@@ -32,39 +32,56 @@ class TestOpenRouterProvider(unittest.TestCase):
         self.assertEqual(provider._response_format(), {"type": "json_object"})
 
     def test_missing_api_key_returns_controlled_error(self):
-        with patch.dict(os.environ, {"OPENROUTER_MODEL": "tencent/hy3:free"}, clear=True):
+        with patch.dict(os.environ, {"OPENROUTER_MODEL": "openrouter/free"}, clear=True):
             provider = OpenRouterProvider()
             result = provider.generate_json("prompt")
 
         self.assertFalse(result.ok)
         self.assertEqual(result.provider, "openrouter")
-        self.assertEqual(result.model, "tencent/hy3:free")
+        self.assertEqual(result.model, "openrouter/free")
         self.assertIn("OPENROUTER_API_KEY", result.error)
 
     def test_provider_timeout_defaults_below_vercel_limit(self):
         with patch.dict(os.environ, {}, clear=True):
             provider = OpenRouterProvider()
 
-        self.assertEqual(provider.timeout, 20.0)
-        self.assertLess(provider.timeout, 60)
+        self.assertEqual(provider.timeout, 90.0)
+        self.assertLess(provider.timeout, 300)
 
     def test_provider_timeout_is_configurable_and_capped(self):
-        with patch.dict(os.environ, {"OPENROUTER_TIMEOUT_SECONDS": "90"}, clear=True):
+        with patch.dict(os.environ, {"OPENROUTER_TIMEOUT_SECONDS": "999"}, clear=True):
             provider = OpenRouterProvider()
 
-        self.assertEqual(provider.timeout, 25.0)
+        self.assertEqual(provider.timeout, 100.0)
 
-    def test_primary_provider_has_a_smaller_timeout_budget(self):
-        with patch.dict(os.environ, {"OPENCODE_TIMEOUT_SECONDS": "90"}, clear=True):
+    def test_primary_provider_timeout_is_configurable_and_capped(self):
+        with patch.dict(os.environ, {"OPENCODE_TIMEOUT_SECONDS": "999"}, clear=True):
             provider = OpenCodeProvider()
 
-        self.assertEqual(provider.timeout, 10.0)
+        self.assertEqual(provider.timeout, 100.0)
+
+    def test_http_error_only_surfaces_message_without_metadata(self):
+        provider = OpenRouterProvider()
+        details = json.dumps(
+            {
+                "error": {
+                    "code": 429,
+                    "message": "Provider is rate-limited.",
+                    "metadata": {"raw": "large upstream payload"},
+                }
+            }
+        )
+
+        message = provider._format_http_error(429, details)
+
+        self.assertEqual(message, "openrouter HTTP error 429: Provider is rate-limited.")
+        self.assertNotIn("metadata", message)
 
     def test_invalid_provider_timeout_uses_default(self):
         with patch.dict(os.environ, {"AI_PROVIDER_TIMEOUT_SECONDS": "invalid"}, clear=True):
             provider = OpenRouterProvider()
 
-        self.assertEqual(provider.timeout, 20.0)
+        self.assertEqual(provider.timeout, 90.0)
 
     def test_post_uses_configured_provider_timeout(self):
         response = MagicMock()

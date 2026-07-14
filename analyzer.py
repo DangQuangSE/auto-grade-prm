@@ -2,6 +2,45 @@ import os
 import re
 import yaml
 
+
+def validate_flutter_project(project_path):
+    """Return a user-facing validation error, or ``None`` for a Flutter project."""
+    if not os.path.isdir(project_path):
+        return "Project path does not exist."
+
+    pubspec_path = os.path.join(project_path, "pubspec.yaml")
+    if not os.path.isfile(pubspec_path):
+        return "Repository không phải dự án Flutter hợp lệ: thiếu pubspec.yaml."
+
+    try:
+        with open(pubspec_path, "r", encoding="utf-8") as handle:
+            pubspec = yaml.safe_load(handle) or {}
+    except (OSError, yaml.YAMLError):
+        return "Repository không phải dự án Flutter hợp lệ: pubspec.yaml không đọc được."
+
+    if not isinstance(pubspec, dict):
+        return "Repository không phải dự án Flutter hợp lệ: pubspec.yaml không hợp lệ."
+
+    dependencies = pubspec.get("dependencies") or {}
+    has_flutter_dependency = isinstance(dependencies, dict) and "flutter" in dependencies
+    has_flutter_section = isinstance(pubspec.get("flutter"), dict)
+    if not (has_flutter_dependency or has_flutter_section):
+        return "Repository không phải dự án Flutter hợp lệ: pubspec.yaml không khai báo Flutter."
+
+    lib_path = os.path.join(project_path, "lib")
+    if not os.path.isdir(lib_path):
+        return "Repository không phải dự án Flutter hợp lệ: thiếu thư mục lib."
+
+    has_dart_file = any(
+        filename.endswith(".dart")
+        for _root, _dirs, files in os.walk(lib_path)
+        for filename in files
+    )
+    if not has_dart_file:
+        return "Repository không phải dự án Flutter hợp lệ: thư mục lib không có file Dart."
+
+    return None
+
 def check_naming_convention(name, type_):
     if type_ == 'file':
         # snake_case

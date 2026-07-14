@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
-from analyzer import analyze_flutter_project
+from analyzer import analyze_flutter_project, validate_flutter_project
 from document_parser import DocumentParseError, decode_text_content, extract_docx_text
 from env_loader import load_dotenv
 from github_fetch import GithubFetchError, fetch_github_repo
@@ -121,6 +121,10 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
         target_path = github_url
         
     try:
+        validation_error = validate_flutter_project(target_path)
+        if validation_error:
+            raise HTTPException(status_code=400, detail=validation_error)
+
         # 1. Run static analysis
         analysis_report = analyze_flutter_project(target_path)
         if "error" in analysis_report:
@@ -145,6 +149,10 @@ async def grade_repository(request: GradeRequest, background_tasks: BackgroundTa
 
         return result_report
 
+    except HTTPException:
+        if not is_local:
+            clean_temp_dir(clone_dir)
+        raise
     except Exception as e:
         if not is_local:
             clean_temp_dir(clone_dir)

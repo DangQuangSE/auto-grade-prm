@@ -8,15 +8,15 @@ from typing import Any, Dict, Optional
 
 
 OPENROUTER_PROVIDER = "openrouter"
-DEFAULT_OPENROUTER_MODEL = "tencent/hy3:free"
+DEFAULT_OPENROUTER_MODEL = "openrouter/free"
 DEFAULT_OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
 OPENCODE_PROVIDER = "opencode"
 DEFAULT_OPENCODE_MODEL = "mimo-v2.5-free"
 DEFAULT_OPENCODE_BASE_URL = "https://opencode.ai/zen/v1"
-DEFAULT_PROVIDER_TIMEOUT_SECONDS = 20.0
-MAX_PROVIDER_TIMEOUT_SECONDS = 25.0
-DEFAULT_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 8.0
-MAX_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 10.0
+DEFAULT_PROVIDER_TIMEOUT_SECONDS = 90.0
+MAX_PROVIDER_TIMEOUT_SECONDS = 100.0
+DEFAULT_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 90.0
+MAX_PRIMARY_PROVIDER_TIMEOUT_SECONDS = 100.0
 
 
 class ProviderError(Exception):
@@ -182,7 +182,7 @@ class OpenRouterProvider:
                 return response.read()
         except urllib.error.HTTPError as exc:
             details = exc.read().decode("utf-8", errors="replace")
-            raise ProviderError(f"{self.provider} HTTP error {exc.code}: {details}") from exc
+            raise ProviderError(self._format_http_error(exc.code, details)) from exc
         except urllib.error.URLError as exc:
             raise ProviderError(f"{self.provider} connection error: {exc.reason}") from exc
         except TimeoutError as exc:
@@ -207,6 +207,19 @@ class OpenRouterProvider:
         if self.api_key:
             return message.replace(self.api_key, "[redacted]")
         return message
+
+    def _format_http_error(self, status_code: int, details: str) -> str:
+        """Keep upstream failures useful without exposing a large metadata payload."""
+        message = "Request failed."
+        try:
+            payload = json.loads(details)
+            error = payload.get("error", {}) if isinstance(payload, dict) else {}
+            if isinstance(error, dict) and isinstance(error.get("message"), str):
+                message = error["message"].strip()[:300] or message
+        except json.JSONDecodeError:
+            if details.strip():
+                message = details.strip()[:300]
+        return f"{self.provider} HTTP error {status_code}: {message}"
 
     @staticmethod
     def _response_format() -> Dict[str, Any]:
